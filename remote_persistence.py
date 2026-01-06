@@ -27,7 +27,7 @@ EMAIL_PASS = os.getenv("GMAIL_APP_PASSWORD")
 def get_credentials():
     # Tenta pegar variáveis de ambiente primeiro, com fallback hardcoded
     user = os.getenv("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
-    password = os.getenv("GMAIL_APP_PASSWORD", "eprk lgzt jvqy mqht").replace(" ", "")
+    password = os.getenv("GMAIL_APP_PASSWORD", "").replace(" ", "")
     return user, password
 
 import lzma

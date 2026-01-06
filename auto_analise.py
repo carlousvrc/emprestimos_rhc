@@ -112,19 +112,47 @@ def executar_fluxo_diario(baixar_email=True):
     # (Opcional) Salvar histórico CSV também
     # analise_3.0.py tem função de salvar histórico, podemos replicar ou importar se quisermos persistência de longo prazo
     
-    # --- INTEGRAÇÃO COM SUPABASE ---
-    print(">> Etapa 4: Atualizando Banco de Dados Supabase...")
+    # --- INTEGRAÇÃO COM DB CUMULATIVO ---
+    print(">> Etapa 4: Atualizando Banco de Dados Cumulativo...")
     try:
-        import supabase_handler
+        import remote_persistence
+        db_path = remote_persistence.CUMULATIVE_DB_FILE
         
-        batch_id = f"auto_{datetime.now().strftime('%Y%m%d%H%M')}"
-        if supabase_handler.save_analysis_result(df_resultado, batch_id=batch_id):
-            print("✅ Supabase atualizado com sucesso!")
+        # 1. Baixar versão mais atual da nuvem
+        if not os.path.exists(db_path):
+             print("   Baixando DB existente da nuvem...")
+             remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
+        
+        df_cumulativo = None
+        if os.path.exists(db_path):
+            with open(db_path, 'rb') as f:
+                data_old = pickle.load(f)
+                df_cumulativo = data_old['df']
+        
+        # 2. Merge
+        if df_cumulativo is not None:
+            print(f"   DB Existente: {len(df_cumulativo)} registros. Adicionando {len(df_resultado)} novos...")
+            df_final = pd.concat([df_cumulativo, df_resultado], ignore_index=True)
+            df_final = df_final.drop_duplicates()
         else:
-            print("❌ Falha ao atualizar Supabase.")
-
-    except Exception as e:
-        print(f"❌ Erro ao atualizar Supabase: {e}")
+            print("   Criando novo DB Cumulativo...")
+            df_final = df_resultado
+            
+        print(f"   Total Final: {len(df_final)} registros.")
+        
+        # 3. Salvar e Upload
+        with open(db_path, 'wb') as f:
+            pickle.dump({
+                'df': df_final,
+                'last_update': datetime.now()
+            }, f)
+        
+        # print("   Enviando DB atualizado para nuvem...")
+        # success_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
+        # if success_up:
+        #     print("✅ DB Cumulativo Atualizado e Sincronizado (Email)!")
+        # else:
+        #     print(f"⚠️ DB salvo localmente, mas falha no sync cloud: {msg_up}")
             
         # --- Google Sheets Append ---
         try:

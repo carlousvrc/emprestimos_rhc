@@ -12,7 +12,7 @@ import re
 # Para gerar sennha de app: https://myaccount.google.com/apppasswords
 EMAIL_USER = os.environ.get("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
 # Remove espaços da senha caso venha copiada com eles
-EMAIL_PASS = os.environ.get("GMAIL_APP_PASSWORD", "eprk lgzt jvqy mqht").replace(" ", "")
+EMAIL_PASS = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
 SEARCH_SENDER = os.environ.get("GMAIL_SENDER", "pedro.gomes@hospitaldecancer.com.br") 
 SEARCH_SUBJECT = os.environ.get("GMAIL_SUBJECT", "") # Deixe vazio para ignorar
 DOWNLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados", "input")

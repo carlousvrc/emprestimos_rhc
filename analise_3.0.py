@@ -19,7 +19,7 @@ import auto_analise
 import auth_manager
 import base64
 import uuid
-import supabase_handler
+import remote_persistence
 import time # Fix: Adicionado import para time.sleep # Fix: Adicionado import faltante
 import pytz
 
@@ -370,18 +370,40 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                             
                             df_res_hist, _ = analise_core.analisar_itens(df_s_prep, df_e_prep)
                             
-                            # --- Persistência Supabase (Nuvem) ---
-                            st.info("☁️ Salvando no Supabase...")
+                            # --- Persistência Cumulativa ---
+                            db_path = remote_persistence.CUMULATIVE_DB_FILE
                             
-                            batch_id = f"manual_{datetime.now().strftime('%Y%m%d%H%M')}"
-                            if supabase_handler.save_analysis_result(df_res_hist, batch_id=batch_id):
-                                st.success(f"✅ Histórico atualizado na nuvem! (+{len(df_res_hist)} registros).")
+                            if not os.path.exists(db_path):
+                                st.info("Baixando DB da nuvem...")
+                                success, msg = remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
+                                if not success:
+                                    st.warning(f"Download inicial falhou: {msg}")
                                 
-                                # Carrega df completo atualizado
-                                df_final = supabase_handler.load_analysis_history()
+                            df_cumulativo = None
+                            if os.path.exists(db_path):
+                                try:
+                                    with open(db_path, 'rb') as f:
+                                        data = pickle.load(f)
+                                        df_cumulativo = data['df']
+                                except:
+                                    st.warning("DB local inválido. Criando novo.")
+                            
+                            if df_cumulativo is not None:
+                                df_final = pd.concat([df_cumulativo, df_res_hist], ignore_index=True)
+                                df_final = df_final.drop_duplicates()
                             else:
-                                st.error("❌ Erro ao salvar no Supabase.")
                                 df_final = df_res_hist
+                                
+                            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+                            with open(db_path, 'wb') as f:
+                                pickle.dump({
+                                    'df': df_final,
+                                    'last_update': datetime.now()
+                                }, f)
+                                
+                            # success_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
+                            # if success_up:
+                            # st.success(f"✅ Histórico atualizado (Email)! (+{len(df_res_hist)} registros).")
                             
                             # --- Google Sheets Append (Admin) ---
                             try:
@@ -710,23 +732,62 @@ if st.session_state.df_resultado is None:
             # Se carregou do sheets, pula o resto
             pass
         else:
-            # TENTA CARREGAR DO SUPABASE (PRIORIDADE 2) - Substitui CUMULATIVE_DB
-            import supabase_handler
-            
-            with st.spinner("Carregando dados da nuvem (Supabase)..."):
-                df_cloud = supabase_handler.load_analysis_history()
+            # TENTA CARREGAR DB CUMULATIVO (PRIORIDADE 2)
+            import remote_persistence
+            db_path = remote_persistence.CUMULATIVE_DB_FILE
+        
+        # Se nao existe, tenta sync down rapido (se falhar, usa diario)
+        if not os.path.exists(db_path):
+            with st.spinner("Sincronizando banco de dados..."):
+                 success, msg = remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
+                 if success:
+                     st.toast("DB restaurado da nuvem!")
+                 else:
+                     st.toast(f"Sem DB na nuvem: {msg}")
+        
+        if os.path.exists(db_path):
+            try:
+                with open(db_path, "rb") as f:
+                    dados_db = pickle.load(f)
                 
-            if not df_cloud.empty:
-                st.session_state.df_resultado = df_cloud
+                st.session_state.df_resultado = dados_db['df']
                 st.session_state.current_metadata = {
-                    'arquivo_saida': 'Supabase Database',
+                    'arquivo_saida': 'Banco de Dados Cumulativo',
                     'arquivo_entrada': '---',
-                    'data_formatada': datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    'modo': 'Nuvem (Supabase) ⚡'
+                    'data_formatada': to_brazil_time(dados_db.get('last_update', datetime.now())).strftime("%d/%m/%Y"),
+                    'modo': 'Histórico Completo 📚'
                 }
+            except Exception as e:
+                st.warning(f"Erro ao ler DB Cumulativo: {e}. Tentando diário...")
+                raise FileNotFoundError("Force diario")
+        
+        else:
+            # Fallback para Lógica Antiga (Diário)
+            daily_pkl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados", "resultado_diario.pkl")
+            if os.path.exists(daily_pkl):
+                try:
+                    with open(daily_pkl, "rb") as f:
+                        dados_auto = pickle.load(f)
+                    
+                    # Verifica data do arquivo
+                    data_proc = dados_auto['metadata']['data_processamento']
+                    is_today = data_proc.date() == datetime.now().date()
+                    
+                    if not is_today:
+                         pass # Permite dados antigos se não tiver cumulativo, mas avisa?
+                         # raise Exception("Dados desatualizados (não são de hoje)")
+                         
+                    st.session_state.df_resultado = dados_auto['df']
+                    st.session_state.current_metadata = {
+                        'arquivo_saida': dados_auto['metadata']['arquivo_saida'],
+                        'arquivo_entrada': dados_auto['metadata']['arquivo_entrada'],
+                        'data_formatada': to_brazil_time(data_proc).strftime("%d/%m/%Y"),
+                        'modo': 'Diário (Automático) 🤖'
+                    }
+                except Exception:
+                    raise # Força cair no except abaixo que roda a automação
             else:
-                # Fallback Se Supabase estiver vazio, tenta arquivo diário
-                raise FileNotFoundError("Supabase vazio ou offline")
+                raise FileNotFoundError("Arquivo de dados não existe") # Força cair no except
 
     except Exception as e:
         # Se der erro ou não existir, tenta RODAR O FLUXO AGORA (Self-Healing / Cloud Mode)
