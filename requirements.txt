@@ -1,0 +1,10 @@
+pandas
+openpyxl
+xlsxwriter
+streamlit
+plotly
+altair
+schedule
+pytz
+supabase
+python-dotenv
