@@ -250,6 +250,34 @@ with st.sidebar:
             st.session_state.clear()
             st.session_state.config_version = 11 # Force new version
             st.rerun()
+
+        # Botão de Limpeza de Dados (Emergency)
+        if st.button("⚠️ Remover Dez/2025 (Permanente)"):
+            if st.session_state.df_resultado is not None:
+                df = st.session_state.df_resultado.copy()
+                # Garante data
+                if 'Data' in df.columns:
+                    df['DataObj'] = pd.to_datetime(df['Data'], errors='coerce')
+                    # Filtro Reverso: Tudo que NÃO for dez/2025
+                    mask_remove = (df['DataObj'].dt.month == 12) & (df['DataObj'].dt.year == 2025)
+                    df_clean = df[~mask_remove].drop(columns=['DataObj'])
+                    
+                    rows_removed = mask_remove.sum()
+                    if rows_removed > 0:
+                        import sheets_handler
+                        if sheets_handler.overwrite_data(df_clean):
+                            st.session_state.df_resultado = df_clean
+                            st.toast(f"✅ Removidos {rows_removed} registros de Dez/2025!")
+                            st.rerun()
+                        else:
+                            st.error("Falha ao salvar no Google Sheets.")
+                    else:
+                        st.warning("Nenhum registro de Dez/2025 encontrado na memória.")
+                else:
+                    st.error("Coluna Data não encontrada.")
+            else:
+                st.warning("Nenhum dado carregado para limpar.")
+
         st.divider()
     
     # Debug Toast
