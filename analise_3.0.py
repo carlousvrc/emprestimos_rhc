@@ -206,6 +206,25 @@ def login_page():
             
             if st.session_state.get("login_error"):
                 st.error(st.session_state.login_error)
+            
+            # DEBUG TEMPORARIO
+            with st.expander("🛠️ Debug de Autenticação", expanded=False):
+                st.write(f"Caminho: {os.path.abspath('users.json')}")
+                exists = os.path.exists('users.json')
+                st.write(f"Arquivo existe? {exists}")
+                
+                try:
+                    users = auth_manager.load_users()
+                    st.write(f"Usuários carregados: {len(users)}")
+                    if 'admin' in users:
+                        st.write("Admin encontrado no JSON.")
+                        # Check hash match
+                        match = auth_manager.verify_password(users['admin']['password'], 'Rc2026#@')
+                        st.write(f"Teste Hash (Rc2026#@): {match}")
+                    else:
+                        st.write("Admin NÃO encontrado.")
+                except Exception as e:
+                    st.error(f"Erro load: {e}")
 
 if not st.session_state.logged_in:
     login_page()
