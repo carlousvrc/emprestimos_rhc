@@ -216,7 +216,8 @@ def login_page():
                 try:
                     # FORCE SYNC PARA DEBUG
                     import remote_persistence
-                    remote_persistence.sync_down("users.json")
+                    ok, msg = remote_persistence.sync_down("users.json")
+                    st.write(f"Sync Status: {ok} | Msg: {msg}")
                     
                     # Reload module to clear cache if needed (users.json is read from disk so OK)
                     users = auth_manager.load_users()
