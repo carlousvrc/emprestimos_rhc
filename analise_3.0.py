@@ -214,6 +214,11 @@ def login_page():
                 st.write(f"Arquivo existe? {exists}")
                 
                 try:
+                    # FORCE SYNC PARA DEBUG
+                    import remote_persistence
+                    remote_persistence.sync_down("users.json")
+                    
+                    # Reload module to clear cache if needed (users.json is read from disk so OK)
                     users = auth_manager.load_users()
                     st.write(f"Usuários carregados: {len(users)}")
                     if 'admin' in users:
