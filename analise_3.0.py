@@ -207,36 +207,7 @@ def login_page():
             if st.session_state.get("login_error"):
                 st.error(st.session_state.login_error)
             
-            # DEBUG TEMPORARIO
-            with st.expander("🛠️ Debug de Autenticação", expanded=False):
-                st.write(f"Caminho: {os.path.abspath('users.json')}")
-                exists = os.path.exists('users.json')
-                st.write(f"Arquivo existe? {exists}")
-                
-                try:
-                    # FORCE SYNC PARA DEBUG
-                    import remote_persistence
-                    ok, msg = remote_persistence.sync_down("users.json")
-                    st.write(f"Sync Status: {ok} | Msg: {msg}")
-                    
-                    # Reload module to clear cache if needed (users.json is read from disk so OK)
-                    users = auth_manager.load_users()
-                    st.write(f"Usuários carregados: {len(users)}")
-                    if 'admin' in users:
-                        st.write("Admin encontrado no JSON.")
-                        # Check hash match
-                        stored_snippet = users['admin']['password'][:15]
-                        
-                        calc_hash = auth_manager.hash_password('Rc2026#@')
-                        calc_snippet = calc_hash[:15]
-                        
-                        st.write(f"Stored: {stored_snippet}...")
-                        st.write(f"Calc'd: {calc_snippet}...")
-                        st.write(f"Match? {stored_snippet == calc_snippet}")
-                    else:
-                        st.write("Admin NÃO encontrado.")
-                except Exception as e:
-                    st.error(f"Erro load: {e}")
+
 
 if not st.session_state.logged_in:
     login_page()
@@ -244,49 +215,9 @@ if not st.session_state.logged_in:
 
 # --- Sidebar: Info do Usuário e Logout ---
 with st.sidebar:
-    if st.session_state.get('user_role') == 'admin':
-        st.header("Configurações")
-        if st.button("🗑️ Limpar Cache (Hard Reset)", type="primary"):
-            st.session_state.clear()
-            st.session_state.config_version = 11 # Force new version
-            st.rerun()
 
-        # Botão de Limpeza de Dados (Emergency)
-        if st.button("⚠️ Remover Dez/2025 (Permanente)"):
-            if st.session_state.df_resultado is not None:
-                df = st.session_state.df_resultado.copy()
-                # Garante data
-                if 'Data' in df.columns:
-                    df['DataObj'] = pd.to_datetime(df['Data'], errors='coerce')
-                    # Filtro Reverso: Tudo que NÃO for dez/2025
-                    mask_remove = (df['DataObj'].dt.month == 12) & (df['DataObj'].dt.year == 2025)
-                    df_clean = df[~mask_remove].drop(columns=['DataObj'])
-                    
-                    rows_removed = mask_remove.sum()
-                    if rows_removed > 0:
-                        import sheets_handler
-                        if sheets_handler.overwrite_data(df_clean):
-                            st.session_state.df_resultado = df_clean
-                            st.toast(f"✅ Removidos {rows_removed} registros de Dez/2025!")
-                            st.rerun()
-                        else:
-                            st.error("Falha ao salvar no Google Sheets.")
-                    else:
-                        st.warning("Nenhum registro de Dez/2025 encontrado na memória.")
-                else:
-                    st.error("Coluna Data não encontrada.")
-            else:
-                st.warning("Nenhum dado carregado para limpar.")
-
-        st.divider()
     
-    # Debug Toast
-    try:
-        mode_debug = st.session_state.get('current_metadata', {}).get('modo', 'Desconhecido')
-        rec_count = len(st.session_state.df_resultado) if st.session_state.df_resultado is not None else 0
-        st.toast(f"ℹ️ Versão: 11 | Modo: {mode_debug} | Regs: {rec_count}")
-    except:
-        pass
+
     st.title("👤 Usuário")
     if st.session_state.get('user_name_display'):
         st.write(f"**Nome:** {st.session_state.user_name_display}")
