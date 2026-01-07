@@ -12,15 +12,17 @@ import re
 # Para gerar sennha de app: https://myaccount.google.com/apppasswords
 try:
     import streamlit as st
-    secrets = st.secrets
+    if "GMAIL_USER" in st.secrets:
+        EMAIL_USER = st.secrets["GMAIL_USER"]
+        EMAIL_PASS = st.secrets["GMAIL_APP_PASSWORD"]
+    else:
+        EMAIL_USER = os.environ.get("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
+        EMAIL_PASS = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
 except:
-    secrets = {}
+    EMAIL_USER = os.environ.get("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
+    EMAIL_PASS = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
 
-EMAIL_USER = secrets.get("GMAIL_USER") if "GMAIL_USER" in secrets else os.environ.get("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
-EMAIL_PASS = secrets.get("GMAIL_APP_PASSWORD") if "GMAIL_APP_PASSWORD" in secrets else os.environ.get("GMAIL_APP_PASSWORD", "")
-EMAIL_PASS = EMAIL_PASS.replace(" ", "")
-
-SEARCH_SENDER = secrets.get("GMAIL_SENDER") if "GMAIL_SENDER" in secrets else os.environ.get("GMAIL_SENDER", "pedro.gomes@hospitaldecancer.com.br") 
+SEARCH_SENDER = os.environ.get("GMAIL_SENDER", "pedro.gomes@hospitaldecancer.com.br") 
 SEARCH_SUBJECT = os.environ.get("GMAIL_SUBJECT", "") # Deixe vazio para ignorar
 DOWNLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados", "input")
 
@@ -47,70 +49,28 @@ def download_daily_attachments():
     try:
         mail.select("inbox")
 
-        # Função auxiliar para data IMAP (Garante Ingles)
-        def get_imap_date(dt_obj):
-            months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-            day = dt_obj.day
-            month = months[dt_obj.month - 1]
-            year = dt_obj.year
-            return f"{day}-{month}-{year}"
-
-        # 1. TENTA BUSCAR POR DATA (Últimos 15 dias)
-        date_obj = datetime.now() - dt.timedelta(days=15)
-        date_str = get_imap_date(date_obj)
+        # Data de hoje para filtro (IMAP exige formato específico: 26-Dec-2025)
+        # MODIFICADO: Busca últimos 5 dias para garantir que encontre algo para teste
+        date_str = (datetime.now() - dt.timedelta(days=5)).strftime("%d-%b-%Y")
         
-        # ESTRATÉGIA DE BUSCA EM CASCATA (FALLBACKS)
-        
-        queries_to_try = []
-        
-        # 1. Busca Específica (Data + Sender + Subject) - Mais restritiva
-        q1 = f'(SINCE "{date_str}")'
-        if SEARCH_SENDER: q1 += f' FROM "{SEARCH_SENDER}"'
-        if SEARCH_SUBJECT: q1 += f' SUBJECT "{SEARCH_SUBJECT}"'
-        queries_to_try.append(("Busca Estrita (Data+Remetente)", q1))
-        
-        # 2. Busca por Data + Remetente (Ignora Assunto)
-        if SEARCH_SUBJECT:
-            q2 = f'(SINCE "{date_str}")'
-            if SEARCH_SENDER: q2 += f' FROM "{SEARCH_SENDER}"'
-            queries_to_try.append(("Busca Sem Assunto", q2))
-            
-        # 3. Busca Apenas por Data (Ignora Remetente, pode pegar forwarded)
-        q3 = f'(SINCE "{date_str}")'
-        queries_to_try.append(("Busca Ampla por Data", q3))
-        
-        # 4. Fallback: Últimos 10 emails do Remetente (Ignora Data)
+        # Constrói a query de busca
+        query = f'(SINCE "{date_str}")'
         if SEARCH_SENDER:
-            q4 = f'(FROM "{SEARCH_SENDER}")'
-            queries_to_try.append(("Fallback: Histórico Remetente", q4))
+            query += f' FROM "{SEARCH_SENDER}"'
+        if SEARCH_SUBJECT:
+            query += f' SUBJECT "{SEARCH_SUBJECT}"'
             
-        # 5. Fallback Final: Últimos 15 emails da Caixa de Entrada (Ignora Tudo)
-        q5 = "ALL"
-        queries_to_try.append(("Fallback: Qualquer Email Recente", q5))
+        print(f"🔍 Buscando emails com query: {query}")
+        status, messages = mail.search(None, query)
         
-        email_ids = []
-        
-        for label, query in queries_to_try:
-            print(f"🔍 Tentando: {label}...")
-            status, messages = mail.search(None, query)
+        if status != "OK":
+            print("Erro na busca.")
+            return False
             
-            if status == "OK":
-                ids = messages[0].split()
-                if ids:
-                    print(f"   ✅ Encontrados {len(ids)} emails.")
-                    # Se for busca ALL ou Sender Fallback, pega apenas os últimos X para não iterar a caixa toda
-                    if label.startswith("Fallback"):
-                        ids = ids[-15:] 
-                    
-                    email_ids = ids
-                    break # Achou algo! Para a cascata e vai verificar anexos
-                else:
-                    print("   ⚠️ Nenhum resultado.")
-            else:
-                print("   ❌ Erro na query.")
+        email_ids = messages[0].split()
         
         if not email_ids:
-            print("❌ Falha Total: Nenhum email encontrado em nenhuma estratégia de busca.")
+            print("❌ Nenhum email encontrado hoje com os critérios definidos.")
             return False
             
         print(f"📧 Encontrados {len(email_ids)} emails. Procurando anexos no mais recente...")
