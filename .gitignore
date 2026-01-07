@@ -50,58 +50,6 @@ relatorios/
 dados/
 
 # Excel files (dados de exemplo - remova esta linha se quiser versionar os arquivos Excel)
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
-venv/
-.venv/
-env/
-ENV/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Streamlit
-.streamlit/secrets.toml
-
-# Project specific
-*.exe
-*.spec
-analises/
-historico_analises/
-relatorios/
-dados/
-
-# Excel files (dados de exemplo - remova esta linha se quiser versionar os arquivos Excel)
 *.xlsx
 
 # Debug files
@@ -110,11 +58,7 @@ debug_*.csv
 
 .env
 service_account.json
-users.json
-users_backup_local.json
-
-# Temporary Debug Scripts
-debug_*.py
+debug_hash.py
 fix_hashes.py
-force_upload_users.py
 test_download.py
+force_upload_users.py
