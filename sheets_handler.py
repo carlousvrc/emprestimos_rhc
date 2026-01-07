@@ -7,10 +7,6 @@ import json
 # URL da planilha fixa fornecida pelo usuário
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1UOYbkN1Ugo_PZyrRU9Q5WvYFEcsWkm6Y7uwGvyP_NF4/edit?usp=sharing"
 
-
-# Identificado via script como o ID 533520567
-TARGET_SHEET_NAME = "Análise Completa"
-
 def connect_to_sheets():
     """Conecta ao Google Sheets usando arquivo JSON ou secrets."""
     try:
@@ -43,12 +39,10 @@ def load_data_from_grids(sheet_name=None):
         sh = connect_to_sheets()
         if not sh: return None
         
-        # Pega a aba correta (padrão Análise Completa)
-        target = sheet_name if sheet_name else TARGET_SHEET_NAME
-        try:
-            worksheet = sh.worksheet(target)
-        except:
-            print(f"Aba {target} não encontrada, tentando índice 0.")
+        # Pega a primeira aba se não especificada
+        if sheet_name:
+            worksheet = sh.worksheet(sheet_name)
+        else:
             worksheet = sh.get_worksheet(0)
             
         data = worksheet.get_all_records()
@@ -64,12 +58,10 @@ def append_data_to_sheets(df, sheet_name=None):
         sh = connect_to_sheets()
         if not sh: return False
         
-        target = sheet_name if sheet_name else TARGET_SHEET_NAME
-        try:
-            worksheet = sh.worksheet(target)
-        except:
+        if sheet_name:
+            worksheet = sh.worksheet(sheet_name)
+        else:
             worksheet = sh.get_worksheet(0)
-
 
         # Prepara os dados para inserção
         # gspread espera lista de listas
@@ -133,6 +125,40 @@ def overwrite_data(df, sheet_name=None):
         print(f"❌ Erro ao sobrescrever planilha: {e}")
         return False
         
+
+def sync_full_report(df):
+    """Sincroniza os 3 relatórios (Abas) com o Google Sheets (Sobrescreve tudo)."""
+    if df is None or df.empty:
+        print("⚠️ DataFrame vazio, nada a sincronizar.")
+        return False
+        
+    print("🔄 Iniciando Sincronização Completa com Google Sheets (3 Abas)...")
+    
+    # 1. Análise Completa
+    if not overwrite_data(df, "Análise Completa"):
+        # Se falhar, tenta nome padrão (caso usuário não tenha renomeado)
+        print("⚠️ Aba 'Análise Completa' não encontrada ou erro. Tentando aba padrão (0)...")
+        if not overwrite_data(df, None): # Tenta index 0
+             return False
+
+    # 2. Não Conformes
+    df_nc = df[df['Status'].str.contains('Não Conforme', na=False)]
+    if not df_nc.empty:
+        overwrite_data(df_nc, "Não Conformes")
+    else:
+        # Se vazio, limpa a aba para garantir
+        overwrite_data(pd.DataFrame(columns=df.columns), "Não Conformes")
+
+    # 3. Conformes
+    df_c = df[df['Status'].str.contains('Conforme', na=False) & ~df['Status'].str.contains('Não', na=False)]
+    if not df_c.empty:
+        overwrite_data(df_c, "Conformes")
+    else:
+        overwrite_data(pd.DataFrame(columns=df.columns), "Conformes")
+        
+    print("✅ Sincronização Completa Finalizada!")
+    return True
+
 if __name__ == "__main__":
     # Teste rápido
     print("Tentando conectar...")

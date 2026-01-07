@@ -510,8 +510,9 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                             # --- Google Sheets Append (Admin) ---
                             try:
                                 import sheets_handler
-                                st.info("Sincronizando com Google Sheets...")
-                                if sheets_handler.append_data_to_sheets(df_res_hist): # Envia só o DIFERENCIAL
+                                st.info("Sincronizando com Google Sheets (Todas as Abas)...")
+                                # Usar df_final que contem o historico completo
+                                if sheets_handler.sync_full_report(df_final): 
                                     st.success("✅ Google Sheets atualizado!")
                                 else:
                                     st.warning("⚠️ Falha ao salvar no Google Sheets.")

@@ -131,27 +131,13 @@ def executar_fluxo_diario(baixar_email=True):
         
         # 2. Merge
         if df_cumulativo is not None:
-             print(f"   DB Existente: {len(df_cumulativo)} registros. Verificando duplicatas...")
-             
-             # Chaves para dedup
-             keys_existentes = df_cumulativo.apply(lambda row: f"{row['Data']}-{row['Beneficiario']}-{row['Valor']}", axis=1)
-             keys_novas = df_resultado.apply(lambda row: f"{row['Data']}-{row['Beneficiario']}-{row['Valor']}", axis=1)
-             
-             mask_novos = ~keys_novas.isin(keys_existentes)
-             df_novos = df_resultado[mask_novos]
-             
-             if not df_novos.empty:
-                 print(f"   Novos registros identificados: {len(df_novos)}")
-                 df_final = pd.concat([df_cumulativo, df_novos], ignore_index=True)
-             else:
-                 print("   Nenhum registro novo. Todos já existem no histórico.")
-                 df_final = df_cumulativo
-                 df_novos = pd.DataFrame() # Vazio
+            print(f"   DB Existente: {len(df_cumulativo)} registros. Adicionando {len(df_resultado)} novos...")
+            df_final = pd.concat([df_cumulativo, df_resultado], ignore_index=True)
+            df_final = df_final.drop_duplicates()
         else:
-             print("   Criando novo DB Cumulativo...")
-             df_final = df_resultado
-             df_novos = df_resultado # Tudo é novo
-             
+            print("   Criando novo DB Cumulativo...")
+            df_final = df_resultado
+            
         print(f"   Total Final: {len(df_final)} registros.")
         
         # 3. Salvar e Upload
@@ -170,15 +156,14 @@ def executar_fluxo_diario(baixar_email=True):
             
         # --- Google Sheets Append ---
         try:
-            if not df_novos.empty:
-                print(f"   Adicionando {len(df_novos)} novos registros ao Google Sheets...")
-                import sheets_handler
-                if sheets_handler.append_data_to_sheets(df_novos):
-                     print("✅ Google Sheets atualizado com sucesso!")
-                else:
-                     print("⚠️ Falha ao adicionar dados no Google Sheets.")
+            print("   Adicionando novos dados ao Google Sheets...")
+            import sheets_handler
+            # MODIFICADO: Sincroniza todas as abas (Sobrescreve com o cumulativo atualizado)
+            # Usar df_final que contém TUDO
+            if sheets_handler.sync_full_report(df_final):
+                 print("✅ Google Sheets (Todas as Abas) atualizado com sucesso!")
             else:
-                print("☁️ Google Sheets já está atualizado.")
+                 print("⚠️ Falha ao atualizar Google Sheets.")
         except Exception as e_sheet:
             print(f"❌ Erro crítico Sheets: {e_sheet}")
 
