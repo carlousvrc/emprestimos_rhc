@@ -49,12 +49,28 @@ def ensure_sync():
             print("☁️ [Auth] Banco atualizado da nuvem.")
         _initial_sync_done = True
 
-def check_password(username, password):
+import hashlib
+
+def hash_password(password):
+    """Gera hash SHA-512 da senha."""
+    return hashlib.sha512(password.encode()).hexdigest()
+
+def create_user(username, password, name, role='user', unit=None):
+    """Cria ou atualiza um usuário."""
     users = load_users()
-    if username in users and users[username]['password'] == password:
-        return users[username].get('role', 'user')
-    return None
+    users[username] = {
+        "password": hash_password(password),
+        "name": name,
+        "role": role,
+        "unit": unit
+    }
+    save_users(users)
+
+def check_password(username, password):
+    # Backward compatibility if someone calls this directly
+    return verify_password(load_users().get(username, {}).get('password'), password)
 
 def verify_password(stored_password, input_password):
-    """Verifica se a senha coincide (simples string match por enquanto)."""
-    return stored_password == input_password
+    """Verifica se a senha coincide (comparando hashes)."""
+    if not stored_password: return False
+    return stored_password == hash_password(input_password)
