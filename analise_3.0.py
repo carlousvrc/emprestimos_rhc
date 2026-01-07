@@ -135,12 +135,30 @@ if 'logged_in' not in st.session_state:
                 print(f"🔄 Sessão restaurada para: {user_from_token}")
 
 # Force Reload Fix for Timezone (Invalidate stale cache)
-if 'config_version' not in st.session_state or st.session_state.config_version != 11:
+# Force Reload Fix for Timezone (Invalidate stale cache)
+if 'config_version' not in st.session_state or st.session_state.config_version != 12:
     st.session_state.df_resultado = None
     st.session_state.current_metadata = {} # Force clear metadata
-    st.session_state.config_version = 11
-    # st.rerun() # Not needed here, flow continues and will load data later
-    # st.rerun() # Not needed here, flow continues and will load data later
+    st.session_state.config_version = 12
+    
+    # NUCLEAR OPTION: Deleta caches locais persistentes antigos para garantir limpeza
+    try:
+        import remote_persistence
+        caches_to_nuke = [
+            remote_persistence.CUMULATIVE_DB_FILE,
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados", "resultado_diario.pkl")
+        ]
+        
+        for cache_file in caches_to_nuke:
+            if os.path.exists(cache_file):
+                try:
+                    os.remove(cache_file)
+                    print(f"☢️ Cache deletado: {cache_file}")
+                except Exception as e:
+                    print(f"⚠️ Falha ao deletar cache {cache_file}: {e}")
+    except:
+        pass
+        
     # st.rerun() # Not needed here, flow continues and will load data later
 
 if 'logged_in' not in st.session_state:
