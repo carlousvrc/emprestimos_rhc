@@ -15,7 +15,8 @@ DB_SUBJECT_TAG = "[SYSTEM_DB_USERS_BACKUP]"
 DB_SUBJECT_TAG = "[SYSTEM_DB_USERS_BACKUP]"
 CUMULATIVE_TAG = "[SYSTEM_DB_CUMULATIVE_BACKUP]"
 LOCAL_DB_FILE = "users.json"
-CUMULATIVE_DB_FILE = os.path.join("dados", "cumulative_db.pkl")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CUMULATIVE_DB_FILE = os.path.join(BASE_DIR, "dados", "cumulative_db.pkl")
 
 # Credenciais (Pega as mesmas do download_gmail.py)
 EMAIL_USER = "doc.analise.robo@gmail.com" # Hardcoded conforme padrão do projeto existente
@@ -36,6 +37,9 @@ import time
 
 def sync_up(file_path=LOCAL_DB_FILE, subject_tag=DB_SUBJECT_TAG):
     """Envia um arquivo local para o email (Salva no IMAP sem enviar email). Com compressão."""
+    # DISABLE ALL UPLOADS
+    return True, "Upload desativado globalmente."
+
     if not os.path.exists(file_path):
         return False, f"Arquivo local não encontrado: {file_path}"
         

@@ -1,0 +1,25 @@
+💰 Total Saída (Dez/25): R$ 1,088,738.47
+🔍 Repetições de 'Documento' + 'Produto' (ignora resto): 2362
+
+Exemplo de repetições (Documento + Produto):
+                          Data Documento Produto (Saída)  Valor Saída (R$)             Unidade Origem
+6860 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6861 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6862 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6863 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6864 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6866 2025-12-30 11:47:21-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6868 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6871 2025-12-30 16:58:28-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6872 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6873 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6874 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6875 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6877 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6879 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6880 2025-12-30 14:30:55-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6881 2025-12-30 11:47:21-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6883 2025-12-29 13:53:31-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6884 2025-12-29 16:33:34-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6885 2025-12-29 10:28:07-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL
+6886 2025-12-29 16:33:34-03:00                         -               NaN  HOSPITAL CASA DE PORTUGAL

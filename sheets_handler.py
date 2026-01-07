@@ -81,6 +81,49 @@ def append_data_to_sheets(df, sheet_name=None):
     except Exception as e:
         print(f"Erro ao salvar dados na planilha: {e}")
         return False
+
+def overwrite_data(df, sheet_name=None):
+    """Sobrescreve TODOS os dados da planilha com o DataFrame fornecido."""
+    try:
+        sh = connect_to_sheets()
+        if not sh: return False
+        
+        if sheet_name:
+            worksheet = sh.worksheet(sheet_name)
+        else:
+            worksheet = sh.get_worksheet(0)
+            
+        print(f"🧹 Limpando planilha: {worksheet.title}")
+        worksheet.clear()
+        
+        # Converte para lista de listas (com headers)
+        df_to_save = df.copy()
+        
+        # 1. Converte Datetimes e Timedeltas
+        for col in df_to_save.select_dtypes(include=['datetime64[ns]', 'datetime', 'timedelta64[ns]']).columns:
+             df_to_save[col] = df_to_save[col].astype(str).replace({'NaT': ''})
+
+        # 2. Preenche NaNs com string vazia
+        df_to_save = df_to_save.fillna('')
+        
+        # 3. CONVERSÃO FINAL AGRESSIVA PARA STRING
+        # Isso resolve problemas de int64, float64, decimal, etc que o JSON odeia
+        df_to_save = df_to_save.astype(str)
+        
+        # Limpa string 'nan' que o astype pode ter gerado
+        df_to_save = df_to_save.replace({'nan': '', 'None': '', '<NA>': ''})
+        
+        # Headers + Dados
+        values = [df_to_save.columns.tolist()] + df_to_save.values.tolist()
+        
+        print(f"📤 Enviando {len(values)} linhas para a nuvem...")
+        worksheet.update(values)
+        print("✅ Upload concluído!")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erro ao sobrescrever planilha: {e}")
+        return False
         
 if __name__ == "__main__":
     # Teste rápido

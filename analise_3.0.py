@@ -135,10 +135,10 @@ if 'logged_in' not in st.session_state:
                 print(f"🔄 Sessão restaurada para: {user_from_token}")
 
 # Force Reload Fix for Timezone (Invalidate stale cache)
-if 'config_version' not in st.session_state or st.session_state.config_version != 7:
+if 'config_version' not in st.session_state or st.session_state.config_version != 11:
     st.session_state.df_resultado = None
     st.session_state.current_metadata = {} # Force clear metadata
-    st.session_state.config_version = 7
+    st.session_state.config_version = 11
     # st.rerun() # Not needed here, flow continues and will load data later
     # st.rerun() # Not needed here, flow continues and will load data later
     # st.rerun() # Not needed here, flow continues and will load data later
@@ -213,6 +213,21 @@ if not st.session_state.logged_in:
 
 # --- Sidebar: Info do Usuário e Logout ---
 with st.sidebar:
+    st.header("Configurações")
+    if st.button("🗑️ Limpar Cache (Hard Reset)", type="primary"):
+        st.session_state.clear()
+        st.session_state.config_version = 11 # Force new version
+        st.rerun()
+        
+    st.divider()
+    
+    # Debug Toast
+    try:
+        mode_debug = st.session_state.get('current_metadata', {}).get('modo', 'Desconhecido')
+        rec_count = len(st.session_state.df_resultado) if st.session_state.df_resultado is not None else 0
+        st.toast(f"ℹ️ Versão: 11 | Modo: {mode_debug} | Regs: {rec_count}")
+    except:
+        pass
     st.title("👤 Usuário")
     if st.session_state.get('user_name_display'):
         st.write(f"**Nome:** {st.session_state.user_name_display}")
@@ -388,11 +403,39 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                                 except:
                                     st.warning("DB local inválido. Criando novo.")
                             
-                            if df_cumulativo is not None:
-                                df_final = pd.concat([df_cumulativo, df_res_hist], ignore_index=True)
-                                df_final = df_final.drop_duplicates()
+                            if df_cumulativo is not None and not df_cumulativo.empty:
+                                # Lógica robusta de deduplicação antes de concatenar
+                                cols_key = ['Data', 'Unidade Origem', 'Unidade Destino', 'Documento', 'Produto (Saída)', 'Produto (Entrada)', 'Valor Saída (R$)', 'Valor Entrada (R$)']
+                                
+                                # Cria chaves para comparação
+                                def criar_chave(df_in):
+                                    df_temp = df_in.copy()
+                                    # Normaliza data para remover timezone/erros de precisão na comparação
+                                    df_temp['DataKey'] = pd.to_datetime(df_temp['Data']).dt.strftime('%Y-%m-%d %H:%M:%S')
+                                    # Cria tupla hashable
+                                    return df_temp.apply(lambda row: tuple(str(row[c]) for c in cols_key if c != 'Data') + (row['DataKey'],), axis=1)
+
+                                keys_existentes = set(criar_chave(df_cumulativo))
+                                keys_novas = criar_chave(df_res_hist)
+                                
+                                # Filtra apenas o que não existe
+                                mask_novos = ~keys_novas.isin(keys_existentes)
+                                df_novos = df_res_hist[mask_novos]
+                                
+                                qtd_ignorados = len(df_res_hist) - len(df_novos)
+                                
+                                if qtd_ignorados > 0:
+                                    st.warning(f"⚠️ {qtd_ignorados} registros duplicados foram detectados e ignorados.")
+                                
+                                if not df_novos.empty:
+                                    df_final = pd.concat([df_cumulativo, df_novos], ignore_index=True)
+                                    st.success(f"✅ {len(df_novos)} novos registros adicionados ao histórico.")
+                                else:
+                                    df_final = df_cumulativo
+                                    st.info("ℹ️ Nenhum registro novo para adicionar (todos duplicados).")
                             else:
                                 df_final = df_res_hist
+                                st.success(f"✅ Banco inicial criado com {len(df_final)} registros.")
                                 
                             os.makedirs(os.path.dirname(db_path), exist_ok=True)
                             with open(db_path, 'wb') as f:
@@ -712,8 +755,10 @@ class ToastNotifier:
 if st.session_state.df_resultado is None:
     try:
         # TENTA CARREGAR DO GOOGLE SHEETS (PRIORIDADE 1)
+        # TENTA CARREGAR DO GOOGLE SHEETS (PRIORIDADE 1)
         import sheets_handler
         df_sheets = sheets_handler.load_data_from_grids()
+        # df_sheets = None
         
         if df_sheets is not None and not df_sheets.empty:
             # Converte colunas de data (Sheets retorna strings)
