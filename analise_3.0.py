@@ -851,59 +851,61 @@ if st.session_state.df_resultado is None:
                 raise FileNotFoundError("Arquivo de dados não existe") # Força cair no except
 
     except Exception as e:
-        # Se der erro ou não existir, tenta RODAR O FLUXO AGORA (Self-Healing / Cloud Mode)
-        st.warning(f"Dados locais não encontrados. Iniciando automação em nuvem...")
+        # Se der erro ou não existir, EVITA rodar automação automática para não trazer lixo de email antigo
+        # st.warning(f"Dados locais não encontrados. Iniciando automação em nuvem...")
+        st.warning("⚠️ Banco de dados local vazio ou não encontrado. Por favor, envie os arquivos manualmente.")
+        sucesso = False
         
         # log_container = st.empty() # Não precisa mais disso
         
-        try:
-            import auto_analise
-            with ToastNotifier():
-                with st.spinner("Executando robô de análise..."):
-                    sucesso = auto_analise.executar_fluxo_diario(baixar_email=True)
+        # try:
+        #     import auto_analise
+        #     with ToastNotifier():
+        #         with st.spinner("Executando robô de análise..."):
+        #             sucesso = auto_analise.executar_fluxo_diario(baixar_email=True)
             
-            if sucesso:
-                # Tenta carregar novamente
-                # MODIFICADO: Agora carrega do CUMULATIVO se disponível, ou do diário
-                db_path = remote_persistence.CUMULATIVE_DB_FILE
-                
-                # Se não existir local, tenta Sync Down
-                if not os.path.exists(db_path):
-                     with ToastNotifier():
-                         st.toast("Baixando histórico da nuvem...")
-                         remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
-
-                if os.path.exists(db_path):
-                    with open(db_path, "rb") as f:
-                        dados_db = pickle.load(f)
-                    
-                    st.session_state.df_resultado = dados_db['df']
-                    st.session_state.current_metadata = {
-                        'arquivo_saida': 'Banco de Dados Cumulativo',
-                        'arquivo_entrada': '---',
-                        'data_formatada': to_brazil_time(dados_db.get('last_update', datetime.now())).strftime("%d/%m/%Y"),
-                        'modo': 'Histórico Completo 📚'
-                    }
-                    st.rerun() # Recarrega a página com os dados novos
-                elif os.path.exists(daily_pkl):
-                    # Fallback para o diário se o cumulativo falhar
-                    with open(daily_pkl, "rb") as f:
-                        dados_auto = pickle.load(f)
-                    
-                    st.session_state.df_resultado = dados_auto['df']
-                    st.session_state.current_metadata = {
-                        'arquivo_saida': dados_auto['metadata']['arquivo_saida'],
-                        'arquivo_entrada': dados_auto['metadata']['arquivo_entrada'],
-                        'data_formatada': to_brazil_time(dados_auto['metadata']['data_processamento']).strftime("%d/%m/%Y"),
-                        'modo': 'Automático (Sob Demanda) 🤖'
-                    }
-                    st.rerun()
-                else:
-                    st.error("Automação rodou mas arquivo não foi criado.")
-            else:
-                st.error("Falha na execução da automação. Verifique logs.")
-        except Exception as e2:
-             st.error(f"Erro crítico ao tentar rodar automação: {e2}")
+        # if sucesso:
+        #         # Tenta carregar novamente
+        #         # MODIFICADO: Agora carrega do CUMULATIVO se disponível, ou do diário
+        #         db_path = remote_persistence.CUMULATIVE_DB_FILE
+        #         
+        #         # Se não existir local, tenta Sync Down
+        #         if not os.path.exists(db_path):
+        #              with ToastNotifier():
+        #                  st.toast("Baixando histórico da nuvem...")
+        #                  remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
+        #
+        #         if os.path.exists(db_path):
+        #             with open(db_path, "rb") as f:
+        #                 dados_db = pickle.load(f)
+        #             
+        #             st.session_state.df_resultado = dados_db['df']
+        #             st.session_state.current_metadata = {
+        #                 'arquivo_saida': 'Banco de Dados Cumulativo',
+        #                 'arquivo_entrada': '---',
+        #                 'data_formatada': to_brazil_time(dados_db.get('last_update', datetime.now())).strftime("%d/%m/%Y"),
+        #                 'modo': 'Histórico Completo 📚'
+        #             }
+        #             st.rerun() # Recarrega a página com os dados novos
+        #         elif os.path.exists(daily_pkl):
+        #             # Fallback para o diário se o cumulativo falhar
+        #             with open(daily_pkl, "rb") as f:
+        #                 dados_auto = pickle.load(f)
+        #             
+        #             st.session_state.df_resultado = dados_auto['df']
+        #             st.session_state.current_metadata = {
+        #                 'arquivo_saida': dados_auto['metadata']['arquivo_saida'],
+        #                 'arquivo_entrada': dados_auto['metadata']['arquivo_entrada'],
+        #                 'data_formatada': to_brazil_time(dados_auto['metadata']['data_processamento']).strftime("%d/%m/%Y"),
+        #                 'modo': 'Automático (Sob Demanda) 🤖'
+        #             }
+        #             st.rerun()
+        #         else:
+        #             st.error("Automação rodou mas arquivo não foi criado.")
+        #     else:
+        #         st.error("Falha na execução da automação. Verifique logs.")
+        # except Exception as e2:
+        #      st.error(f"Erro crítico ao tentar rodar automação: {e2}")
 
 
 
