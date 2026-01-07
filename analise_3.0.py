@@ -757,12 +757,13 @@ if st.session_state.df_resultado is None:
         df_sheets = sheets_handler.load_data_from_grids()
         # df_sheets = None
         
-        if df_sheets is not None and not df_sheets.empty:
+        if df_sheets is not None:
             # Converte colunas de data (Sheets retorna strings)
-            if 'Data' in df_sheets.columns:
-                df_sheets['Data'] = pd.to_datetime(df_sheets['Data'], errors='coerce')
-            if 'Data Processamento' in df_sheets.columns:
-                df_sheets['Data Processamento'] = pd.to_datetime(df_sheets['Data Processamento'], errors='coerce')
+            if not df_sheets.empty:
+                if 'Data' in df_sheets.columns:
+                    df_sheets['Data'] = pd.to_datetime(df_sheets['Data'], errors='coerce')
+                if 'Data Processamento' in df_sheets.columns:
+                    df_sheets['Data Processamento'] = pd.to_datetime(df_sheets['Data Processamento'], errors='coerce')
                 
             st.session_state.df_resultado = df_sheets
             st.session_state.current_metadata = {
@@ -771,7 +772,7 @@ if st.session_state.df_resultado is None:
                 'data_formatada': datetime.now().strftime("%d/%m/%Y"), # Data acesso
                 'modo': 'Nuvem (Google Sheets) ☁️'
             }
-            # Se carregou do sheets, pula o resto
+            # Se carregou do sheets (mesmo vazio), pula o resto e confia na nuvem
             pass
         else:
             # TENTA CARREGAR DB CUMULATIVO (PRIORIDADE 2)
