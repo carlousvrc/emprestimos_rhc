@@ -47,9 +47,17 @@ def download_daily_attachments():
     try:
         mail.select("inbox")
 
-        # Data de hoje para filtro (IMAP exige formato específico: 26-Dec-2025)
-        # MODIFICADO: Busca últimos 5 dias para garantir que encontre algo para teste
-        date_str = (datetime.now() - dt.timedelta(days=5)).strftime("%d-%b-%Y")
+        # Função auxiliar para data IMAP (Garante Ingles)
+        def get_imap_date(dt_obj):
+            months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            day = dt_obj.day
+            month = months[dt_obj.month - 1]
+            year = dt_obj.year
+            return f"{day}-{month}-{year}"
+
+        # 1. TENTA BUSCAR POR DATA (Últimos 15 dias)
+        date_obj = datetime.now() - dt.timedelta(days=15)
+        date_str = get_imap_date(date_obj)
         
         # Constrói a query de busca
         query = f'(SINCE "{date_str}")'
@@ -61,14 +69,21 @@ def download_daily_attachments():
         print(f"🔍 Buscando emails com query: {query}")
         status, messages = mail.search(None, query)
         
-        if status != "OK":
-            print("Erro na busca.")
-            return False
-            
-        email_ids = messages[0].split()
+        email_ids = []
+        if status == "OK":
+             email_ids = messages[0].split()
+        
+        # 2. SE NÃO ACHOU, TENTA BUSCAR OS ÚLTIMOS 10 EMAILS GERAIS DO REMETENTE (FALLBACK)
+        if not email_ids and SEARCH_SENDER:
+             print("⚠️ Busca por data vazia. Tentando buscar os últimos 10 emails do remetente...")
+             fallback_query = f'(FROM "{SEARCH_SENDER}")'
+             status, messages = mail.search(None, fallback_query)
+             if status == "OK":
+                 all_ids = messages[0].split()
+                 email_ids = all_ids[-10:] # Pega os 10 mais recentes
         
         if not email_ids:
-            print("❌ Nenhum email encontrado hoje com os critérios definidos.")
+            print("❌ Nenhum email encontrado (nem recente, nem histórico recente).")
             return False
             
         print(f"📧 Encontrados {len(email_ids)} emails. Procurando anexos no mais recente...")
