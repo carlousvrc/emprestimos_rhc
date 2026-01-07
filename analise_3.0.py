@@ -135,30 +135,12 @@ if 'logged_in' not in st.session_state:
                 print(f"🔄 Sessão restaurada para: {user_from_token}")
 
 # Force Reload Fix for Timezone (Invalidate stale cache)
-# Force Reload Fix for Timezone (Invalidate stale cache)
-if 'config_version' not in st.session_state or st.session_state.config_version != 12:
+if 'config_version' not in st.session_state or st.session_state.config_version != 11:
     st.session_state.df_resultado = None
     st.session_state.current_metadata = {} # Force clear metadata
-    st.session_state.config_version = 12
-    
-    # NUCLEAR OPTION: Deleta caches locais persistentes antigos para garantir limpeza
-    try:
-        import remote_persistence
-        caches_to_nuke = [
-            remote_persistence.CUMULATIVE_DB_FILE,
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados", "resultado_diario.pkl")
-        ]
-        
-        for cache_file in caches_to_nuke:
-            if os.path.exists(cache_file):
-                try:
-                    os.remove(cache_file)
-                    print(f"☢️ Cache deletado: {cache_file}")
-                except Exception as e:
-                    print(f"⚠️ Falha ao deletar cache {cache_file}: {e}")
-    except:
-        pass
-        
+    st.session_state.config_version = 11
+    # st.rerun() # Not needed here, flow continues and will load data later
+    # st.rerun() # Not needed here, flow continues and will load data later
     # st.rerun() # Not needed here, flow continues and will load data later
 
 if 'logged_in' not in st.session_state:
@@ -225,7 +207,36 @@ def login_page():
             if st.session_state.get("login_error"):
                 st.error(st.session_state.login_error)
             
-
+            # DEBUG TEMPORARIO
+            with st.expander("🛠️ Debug de Autenticação", expanded=False):
+                st.write(f"Caminho: {os.path.abspath('users.json')}")
+                exists = os.path.exists('users.json')
+                st.write(f"Arquivo existe? {exists}")
+                
+                try:
+                    # FORCE SYNC PARA DEBUG
+                    import remote_persistence
+                    ok, msg = remote_persistence.sync_down("users.json")
+                    st.write(f"Sync Status: {ok} | Msg: {msg}")
+                    
+                    # Reload module to clear cache if needed (users.json is read from disk so OK)
+                    users = auth_manager.load_users()
+                    st.write(f"Usuários carregados: {len(users)}")
+                    if 'admin' in users:
+                        st.write("Admin encontrado no JSON.")
+                        # Check hash match
+                        stored_snippet = users['admin']['password'][:15]
+                        
+                        calc_hash = auth_manager.hash_password('Rc2026#@')
+                        calc_snippet = calc_hash[:15]
+                        
+                        st.write(f"Stored: {stored_snippet}...")
+                        st.write(f"Calc'd: {calc_snippet}...")
+                        st.write(f"Match? {stored_snippet == calc_snippet}")
+                    else:
+                        st.write("Admin NÃO encontrado.")
+                except Exception as e:
+                    st.error(f"Erro load: {e}")
 
 if not st.session_state.logged_in:
     login_page()
@@ -233,9 +244,49 @@ if not st.session_state.logged_in:
 
 # --- Sidebar: Info do Usuário e Logout ---
 with st.sidebar:
+    if st.session_state.get('user_role') == 'admin':
+        st.header("Configurações")
+        if st.button("🗑️ Limpar Cache (Hard Reset)", type="primary"):
+            st.session_state.clear()
+            st.session_state.config_version = 11 # Force new version
+            st.rerun()
 
+        # Botão de Limpeza de Dados (Emergency)
+        if st.button("⚠️ Remover Dez/2025 (Permanente)"):
+            if st.session_state.df_resultado is not None:
+                df = st.session_state.df_resultado.copy()
+                # Garante data
+                if 'Data' in df.columns:
+                    df['DataObj'] = pd.to_datetime(df['Data'], errors='coerce')
+                    # Filtro Reverso: Tudo que NÃO for dez/2025
+                    mask_remove = (df['DataObj'].dt.month == 12) & (df['DataObj'].dt.year == 2025)
+                    df_clean = df[~mask_remove].drop(columns=['DataObj'])
+                    
+                    rows_removed = mask_remove.sum()
+                    if rows_removed > 0:
+                        import sheets_handler
+                        if sheets_handler.overwrite_data(df_clean):
+                            st.session_state.df_resultado = df_clean
+                            st.toast(f"✅ Removidos {rows_removed} registros de Dez/2025!")
+                            st.rerun()
+                        else:
+                            st.error("Falha ao salvar no Google Sheets.")
+                    else:
+                        st.warning("Nenhum registro de Dez/2025 encontrado na memória.")
+                else:
+                    st.error("Coluna Data não encontrada.")
+            else:
+                st.warning("Nenhum dado carregado para limpar.")
+
+        st.divider()
     
-
+    # Debug Toast
+    try:
+        mode_debug = st.session_state.get('current_metadata', {}).get('modo', 'Desconhecido')
+        rec_count = len(st.session_state.df_resultado) if st.session_state.df_resultado is not None else 0
+        st.toast(f"ℹ️ Versão: 11 | Modo: {mode_debug} | Regs: {rec_count}")
+    except:
+        pass
     st.title("👤 Usuário")
     if st.session_state.get('user_name_display'):
         st.write(f"**Nome:** {st.session_state.user_name_display}")
@@ -264,7 +315,7 @@ with st.sidebar:
         st.divider()
         st.subheader("⚙️ Administração")
         # Checkbox com chave para persistência correta
-        is_admin_checked = st.checkbox("Painel Administrativo", value=st.session_state.get('show_admin', False))
+        is_admin_checked = st.checkbox("Gerenciar Usuários", value=st.session_state.get('show_admin', False))
         if is_admin_checked:
             st.session_state.show_admin = True
         else:
@@ -273,7 +324,7 @@ with st.sidebar:
 # --- Área Administrativa (Apenas Admin) ---
 # Adiciona verificação redundante de role para segurança
 if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
-    st.title("⚙️ Painel Administrativo")
+    st.title("⚙️ Gerenciamento de Usuários")
     
     # Criar novo usuário
     with st.expander("➕ Criar Novo Usuário"):
@@ -437,15 +488,12 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                                 
                                 if not df_novos.empty:
                                     df_final = pd.concat([df_cumulativo, df_novos], ignore_index=True)
-                                    df_to_upload = df_novos # Envia apenas novos
                                     st.success(f"✅ {len(df_novos)} novos registros adicionados ao histórico.")
                                 else:
                                     df_final = df_cumulativo
-                                    df_to_upload = pd.DataFrame() # Nada a enviar
                                     st.info("ℹ️ Nenhum registro novo para adicionar (todos duplicados).")
                             else:
                                 df_final = df_res_hist
-                                df_to_upload = df_res_hist # Tudo é novo
                                 st.success(f"✅ Banco inicial criado com {len(df_final)} registros.")
                                 
                             os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -461,18 +509,14 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                             
                             # --- Google Sheets Append (Admin) ---
                             try:
-                                if not df_to_upload.empty:
-                                    import sheets_handler
-                                    st.info(f"Sincronizando {len(df_to_upload)} novos registros com Google Sheets...")
-                                    if sheets_handler.append_data_to_sheets(df_to_upload):
-                                        st.success("✅ Google Sheets atualizado!")
-                                    else:
-                                        st.warning("⚠️ Falha ao salvar no Google Sheets.")
+                                import sheets_handler
+                                st.info("Sincronizando com Google Sheets...")
+                                if sheets_handler.append_data_to_sheets(df_res_hist): # Envia só o DIFERENCIAL
+                                    st.success("✅ Google Sheets atualizado!")
                                 else:
-                                    st.info("☁️ Google Sheets já está atualizado (sem novos dados).")
+                                    st.warning("⚠️ Falha ao salvar no Google Sheets.")
                             except Exception as e_sh:
                                 st.error(f"Erro Sheets: {e_sh}")
-
                                 
                             st.session_state.df_resultado = df_final
                             time.sleep(1) # Dá tempo de ler a mensagem
@@ -775,13 +819,12 @@ if st.session_state.df_resultado is None:
         df_sheets = sheets_handler.load_data_from_grids()
         # df_sheets = None
         
-        if df_sheets is not None:
+        if df_sheets is not None and not df_sheets.empty:
             # Converte colunas de data (Sheets retorna strings)
-            if not df_sheets.empty:
-                if 'Data' in df_sheets.columns:
-                    df_sheets['Data'] = pd.to_datetime(df_sheets['Data'], errors='coerce')
-                if 'Data Processamento' in df_sheets.columns:
-                    df_sheets['Data Processamento'] = pd.to_datetime(df_sheets['Data Processamento'], errors='coerce')
+            if 'Data' in df_sheets.columns:
+                df_sheets['Data'] = pd.to_datetime(df_sheets['Data'], errors='coerce')
+            if 'Data Processamento' in df_sheets.columns:
+                df_sheets['Data Processamento'] = pd.to_datetime(df_sheets['Data Processamento'], errors='coerce')
                 
             st.session_state.df_resultado = df_sheets
             st.session_state.current_metadata = {
@@ -790,7 +833,7 @@ if st.session_state.df_resultado is None:
                 'data_formatada': datetime.now().strftime("%d/%m/%Y"), # Data acesso
                 'modo': 'Nuvem (Google Sheets) ☁️'
             }
-            # Se carregou do sheets (mesmo vazio), pula o resto e confia na nuvem
+            # Se carregou do sheets, pula o resto
             pass
         else:
             # TENTA CARREGAR DB CUMULATIVO (PRIORIDADE 2)
@@ -851,61 +894,60 @@ if st.session_state.df_resultado is None:
                 raise FileNotFoundError("Arquivo de dados não existe") # Força cair no except
 
     except Exception as e:
-        # Se der erro ou não existir, EVITA rodar automação automática para não trazer lixo de email antigo
-        # st.warning(f"Dados locais não encontrados. Iniciando automação em nuvem...")
-        st.warning("⚠️ Banco de dados local vazio ou não encontrado. Por favor, envie os arquivos manualmente.")
-        sucesso = False
+        # Se der erro ou não existir, tenta RODAR O FLUXO AGORA (Self-Healing / Cloud Mode)
+        st.warning(f"Dados locais não encontrados. Iniciando automação em nuvem...")
         
         # log_container = st.empty() # Não precisa mais disso
         
-        # try:
-        #     import auto_analise
-        #     with ToastNotifier():
-        #         with st.spinner("Executando robô de análise..."):
-        #             sucesso = auto_analise.executar_fluxo_diario(baixar_email=True)
+        try:
+            import auto_analise
+            with ToastNotifier():
+                with st.spinner("Executando robô de análise..."):
+                    sucesso = auto_analise.executar_fluxo_diario(baixar_email=True)
             
-        # if sucesso:
-        #         # Tenta carregar novamente
-        #         # MODIFICADO: Agora carrega do CUMULATIVO se disponível, ou do diário
-        #         db_path = remote_persistence.CUMULATIVE_DB_FILE
-        #         
-        #         # Se não existir local, tenta Sync Down
-        #         if not os.path.exists(db_path):
-        #              with ToastNotifier():
-        #                  st.toast("Baixando histórico da nuvem...")
-        #                  remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
-        #
-        #         if os.path.exists(db_path):
-        #             with open(db_path, "rb") as f:
-        #                 dados_db = pickle.load(f)
-        #             
-        #             st.session_state.df_resultado = dados_db['df']
-        #             st.session_state.current_metadata = {
-        #                 'arquivo_saida': 'Banco de Dados Cumulativo',
-        #                 'arquivo_entrada': '---',
-        #                 'data_formatada': to_brazil_time(dados_db.get('last_update', datetime.now())).strftime("%d/%m/%Y"),
-        #                 'modo': 'Histórico Completo 📚'
-        #             }
-        #             st.rerun() # Recarrega a página com os dados novos
-        #         elif os.path.exists(daily_pkl):
-        #             # Fallback para o diário se o cumulativo falhar
-        #             with open(daily_pkl, "rb") as f:
-        #                 dados_auto = pickle.load(f)
-        #             
-        #             st.session_state.df_resultado = dados_auto['df']
-        #             st.session_state.current_metadata = {
-        #                 'arquivo_saida': dados_auto['metadata']['arquivo_saida'],
-        #                 'arquivo_entrada': dados_auto['metadata']['arquivo_entrada'],
-        #                 'data_formatada': to_brazil_time(dados_auto['metadata']['data_processamento']).strftime("%d/%m/%Y"),
-        #                 'modo': 'Automático (Sob Demanda) 🤖'
-        #             }
-        #             st.rerun()
-        #         else:
-        #             st.error("Automação rodou mas arquivo não foi criado.")
-        #     else:
-        #         st.error("Falha na execução da automação. Verifique logs.")
-        # except Exception as e2:
-        #      st.error(f"Erro crítico ao tentar rodar automação: {e2}")
+            if sucesso:
+                # Tenta carregar novamente
+                # MODIFICADO: Agora carrega do CUMULATIVO se disponível, ou do diário
+                db_path = remote_persistence.CUMULATIVE_DB_FILE
+                
+                # Se não existir local, tenta Sync Down
+                if not os.path.exists(db_path):
+                     with ToastNotifier():
+                         st.toast("Baixando histórico da nuvem...")
+                         remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
+
+                if os.path.exists(db_path):
+                    with open(db_path, "rb") as f:
+                        dados_db = pickle.load(f)
+                    
+                    st.session_state.df_resultado = dados_db['df']
+                    st.session_state.current_metadata = {
+                        'arquivo_saida': 'Banco de Dados Cumulativo',
+                        'arquivo_entrada': '---',
+                        'data_formatada': to_brazil_time(dados_db.get('last_update', datetime.now())).strftime("%d/%m/%Y"),
+                        'modo': 'Histórico Completo 📚'
+                    }
+                    st.rerun() # Recarrega a página com os dados novos
+                elif os.path.exists(daily_pkl):
+                    # Fallback para o diário se o cumulativo falhar
+                    with open(daily_pkl, "rb") as f:
+                        dados_auto = pickle.load(f)
+                    
+                    st.session_state.df_resultado = dados_auto['df']
+                    st.session_state.current_metadata = {
+                        'arquivo_saida': dados_auto['metadata']['arquivo_saida'],
+                        'arquivo_entrada': dados_auto['metadata']['arquivo_entrada'],
+                        'data_formatada': to_brazil_time(dados_auto['metadata']['data_processamento']).strftime("%d/%m/%Y"),
+                        'modo': 'Automático (Sob Demanda) 🤖'
+                    }
+                    st.rerun()
+                else:
+                    st.error("Automação rodou mas arquivo não foi criado.")
+            else:
+                st.error("Falha na execução da automação. Verifique logs.")
+        except Exception as e2:
+             st.error(f"Erro crítico ao tentar rodar automação: {e2}")
+
 
 
 
@@ -913,18 +955,46 @@ col_logo, col_title, col_opts = st.columns([1, 4, 1])
 
 with col_opts:
     if st.button("Atualizar", help="Busca novos emails e atualiza os dados agora", use_container_width=True):
+        log_buffer = []  # Lista para acumular logs
+        
+        # Classe customizada para capturar E mostrar logs
+        class FullLogger:
+            def __init__(self):
+                self.original = sys.stdout
+                
+            def __enter__(self):
+                sys.stdout = self
+                return self
+                
+            def __exit__(self, exc_type, exc_value, traceback):
+                sys.stdout = self.original
+                
+            def write(self, s):
+                self.original.write(s) # Escreve no terminal real
+                if s.strip():
+                    log_buffer.append(s.strip())
+                    # Tenta converter em toast se for importante
+                    if ">>" in s or "✅" in s or "❌" in s:
+                         st.toast(s.replace(">>", "").strip())
+                         
+            def flush(self):
+                self.original.flush()
+
         try:
-            # Intercepta prints e transforma em Toasts
-            with ToastNotifier():
-                with st.spinner("Processando atualização..."):
+            with st.spinner("Processando atualização (pode demorar)..."):
+                with FullLogger():
                     sucesso = auto_analise.executar_fluxo_diario(baixar_email=True)
             
+            # Mostra o log completo para debug
+            with st.expander("📜 Log Detalhado da Execução", expanded=True):
+                st.code("\n".join(log_buffer))
+            
             if sucesso:
-                st.toast("Atualização Concluída com Sucesso!")
-                time.sleep(2)
+                st.success("Atualização Concluída!")
+                time.sleep(5) # Tempo para ler o log
                 st.rerun()
             else:
-                st.error("Falha na atualização. Verifique o console ou tente novamente.")
+                st.error("O robô rodou, mas indicou falha (veja o log acima).")
                 
         except Exception as e:
             st.error(f"Erro Crítico: {e}")
@@ -1008,10 +1078,6 @@ if st.session_state.df_resultado is not None:
             st.warning(f"⚠️ Nenhum registro encontrado para o filtro: **{periodo_opcao}**")
 
     # Mostra informações da análise atual
-    if len(df) == 0:
-        st.warning("⚠️ O banco de dados está vazio ou o filtro não retornou resultados.")
-        st.stop()
-
     # Mostra informações do período apurado
     # Usa Data_Obj se existir (pois 'Data' virou string)
     col_data_ref = df['Data_Obj']
