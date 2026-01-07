@@ -59,31 +59,58 @@ def download_daily_attachments():
         date_obj = datetime.now() - dt.timedelta(days=15)
         date_str = get_imap_date(date_obj)
         
-        # Constrói a query de busca
-        query = f'(SINCE "{date_str}")'
-        if SEARCH_SENDER:
-            query += f' FROM "{SEARCH_SENDER}"'
+        # ESTRATÉGIA DE BUSCA EM CASCATA (FALLBACKS)
+        
+        queries_to_try = []
+        
+        # 1. Busca Específica (Data + Sender + Subject) - Mais restritiva
+        q1 = f'(SINCE "{date_str}")'
+        if SEARCH_SENDER: q1 += f' FROM "{SEARCH_SENDER}"'
+        if SEARCH_SUBJECT: q1 += f' SUBJECT "{SEARCH_SUBJECT}"'
+        queries_to_try.append(("Busca Estrita (Data+Remetente)", q1))
+        
+        # 2. Busca por Data + Remetente (Ignora Assunto)
         if SEARCH_SUBJECT:
-            query += f' SUBJECT "{SEARCH_SUBJECT}"'
+            q2 = f'(SINCE "{date_str}")'
+            if SEARCH_SENDER: q2 += f' FROM "{SEARCH_SENDER}"'
+            queries_to_try.append(("Busca Sem Assunto", q2))
             
-        print(f"🔍 Buscando emails com query: {query}")
-        status, messages = mail.search(None, query)
+        # 3. Busca Apenas por Data (Ignora Remetente, pode pegar forwarded)
+        q3 = f'(SINCE "{date_str}")'
+        queries_to_try.append(("Busca Ampla por Data", q3))
+        
+        # 4. Fallback: Últimos 10 emails do Remetente (Ignora Data)
+        if SEARCH_SENDER:
+            q4 = f'(FROM "{SEARCH_SENDER}")'
+            queries_to_try.append(("Fallback: Histórico Remetente", q4))
+            
+        # 5. Fallback Final: Últimos 15 emails da Caixa de Entrada (Ignora Tudo)
+        q5 = "ALL"
+        queries_to_try.append(("Fallback: Qualquer Email Recente", q5))
         
         email_ids = []
-        if status == "OK":
-             email_ids = messages[0].split()
         
-        # 2. SE NÃO ACHOU, TENTA BUSCAR OS ÚLTIMOS 10 EMAILS GERAIS DO REMETENTE (FALLBACK)
-        if not email_ids and SEARCH_SENDER:
-             print("⚠️ Busca por data vazia. Tentando buscar os últimos 10 emails do remetente...")
-             fallback_query = f'(FROM "{SEARCH_SENDER}")'
-             status, messages = mail.search(None, fallback_query)
-             if status == "OK":
-                 all_ids = messages[0].split()
-                 email_ids = all_ids[-10:] # Pega os 10 mais recentes
+        for label, query in queries_to_try:
+            print(f"🔍 Tentando: {label}...")
+            status, messages = mail.search(None, query)
+            
+            if status == "OK":
+                ids = messages[0].split()
+                if ids:
+                    print(f"   ✅ Encontrados {len(ids)} emails.")
+                    # Se for busca ALL ou Sender Fallback, pega apenas os últimos X para não iterar a caixa toda
+                    if label.startswith("Fallback"):
+                        ids = ids[-15:] 
+                    
+                    email_ids = ids
+                    break # Achou algo! Para a cascata e vai verificar anexos
+                else:
+                    print("   ⚠️ Nenhum resultado.")
+            else:
+                print("   ❌ Erro na query.")
         
         if not email_ids:
-            print("❌ Nenhum email encontrado (nem recente, nem histórico recente).")
+            print("❌ Falha Total: Nenhum email encontrado em nenhuma estratégia de busca.")
             return False
             
         print(f"📧 Encontrados {len(email_ids)} emails. Procurando anexos no mais recente...")
