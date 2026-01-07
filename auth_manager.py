@@ -54,3 +54,7 @@ def check_password(username, password):
     if username in users and users[username]['password'] == password:
         return users[username].get('role', 'user')
     return None
+
+def verify_password(stored_password, input_password):
+    """Verifica se a senha coincide (simples string match por enquanto)."""
+    return stored_password == input_password
