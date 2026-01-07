@@ -246,7 +246,7 @@ with st.sidebar:
         st.divider()
         st.subheader("⚙️ Administração")
         # Checkbox com chave para persistência correta
-        is_admin_checked = st.checkbox("Gerenciar Usuários", value=st.session_state.get('show_admin', False))
+        is_admin_checked = st.checkbox("Painel Administrativo", value=st.session_state.get('show_admin', False))
         if is_admin_checked:
             st.session_state.show_admin = True
         else:
@@ -255,7 +255,7 @@ with st.sidebar:
 # --- Área Administrativa (Apenas Admin) ---
 # Adiciona verificação redundante de role para segurança
 if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
-    st.title("⚙️ Gerenciamento de Usuários")
+    st.title("⚙️ Painel Administrativo")
     
     # Criar novo usuário
     with st.expander("➕ Criar Novo Usuário"):
