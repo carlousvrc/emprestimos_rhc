@@ -10,9 +10,16 @@ import re
 # Para gerar sennha de app: https://myaccount.google.com/apppasswords
 # Configurações - Substitua pelos seus dados ou use variáveis de ambiente
 # Para gerar sennha de app: https://myaccount.google.com/apppasswords
-EMAIL_USER = os.environ.get("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
-# Remove espaços da senha caso venha copiada com eles
-EMAIL_PASS = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
+try:
+    import streamlit as st
+    secrets = st.secrets
+except:
+    secrets = {}
+
+EMAIL_USER = secrets.get("GMAIL_USER") if "GMAIL_USER" in secrets else os.environ.get("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
+EMAIL_PASS = secrets.get("GMAIL_APP_PASSWORD") if "GMAIL_APP_PASSWORD" in secrets else os.environ.get("GMAIL_APP_PASSWORD", "")
+EMAIL_PASS = EMAIL_PASS.replace(" ", "")
+
 SEARCH_SENDER = os.environ.get("GMAIL_SENDER", "pedro.gomes@hospitaldecancer.com.br") 
 SEARCH_SUBJECT = os.environ.get("GMAIL_SUBJECT", "") # Deixe vazio para ignorar
 DOWNLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados", "input")
