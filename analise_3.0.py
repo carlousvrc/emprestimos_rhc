@@ -419,12 +419,15 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                                 
                                 if not df_novos.empty:
                                     df_final = pd.concat([df_cumulativo, df_novos], ignore_index=True)
+                                    df_to_upload = df_novos # Envia apenas novos
                                     st.success(f"✅ {len(df_novos)} novos registros adicionados ao histórico.")
                                 else:
                                     df_final = df_cumulativo
+                                    df_to_upload = pd.DataFrame() # Nada a enviar
                                     st.info("ℹ️ Nenhum registro novo para adicionar (todos duplicados).")
                             else:
                                 df_final = df_res_hist
+                                df_to_upload = df_res_hist # Tudo é novo
                                 st.success(f"✅ Banco inicial criado com {len(df_final)} registros.")
                                 
                             os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -440,14 +443,18 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                             
                             # --- Google Sheets Append (Admin) ---
                             try:
-                                import sheets_handler
-                                st.info("Sincronizando com Google Sheets...")
-                                if sheets_handler.append_data_to_sheets(df_res_hist): # Envia só o DIFERENCIAL
-                                    st.success("✅ Google Sheets atualizado!")
+                                if not df_to_upload.empty:
+                                    import sheets_handler
+                                    st.info(f"Sincronizando {len(df_to_upload)} novos registros com Google Sheets...")
+                                    if sheets_handler.append_data_to_sheets(df_to_upload):
+                                        st.success("✅ Google Sheets atualizado!")
+                                    else:
+                                        st.warning("⚠️ Falha ao salvar no Google Sheets.")
                                 else:
-                                    st.warning("⚠️ Falha ao salvar no Google Sheets.")
+                                    st.info("☁️ Google Sheets já está atualizado (sem novos dados).")
                             except Exception as e_sh:
                                 st.error(f"Erro Sheets: {e_sh}")
+
                                 
                             st.session_state.df_resultado = df_final
                             time.sleep(1) # Dá tempo de ler a mensagem
