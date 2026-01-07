@@ -1049,6 +1049,10 @@ if st.session_state.df_resultado is not None:
             st.warning(f"⚠️ Nenhum registro encontrado para o filtro: **{periodo_opcao}**")
 
     # Mostra informações da análise atual
+    if len(df) == 0:
+        st.warning("⚠️ O banco de dados está vazio ou o filtro não retornou resultados.")
+        st.stop()
+
     # Mostra informações do período apurado
     # Usa Data_Obj se existir (pois 'Data' virou string)
     col_data_ref = df['Data_Obj']
