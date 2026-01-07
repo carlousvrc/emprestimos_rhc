@@ -225,8 +225,14 @@ def login_page():
                     if 'admin' in users:
                         st.write("Admin encontrado no JSON.")
                         # Check hash match
-                        match = auth_manager.verify_password(users['admin']['password'], 'Rc2026#@')
-                        st.write(f"Teste Hash (Rc2026#@): {match}")
+                        stored_snippet = users['admin']['password'][:15]
+                        
+                        calc_hash = auth_manager.hash_password('Rc2026#@')
+                        calc_snippet = calc_hash[:15]
+                        
+                        st.write(f"Stored: {stored_snippet}...")
+                        st.write(f"Calc'd: {calc_snippet}...")
+                        st.write(f"Match? {stored_snippet == calc_snippet}")
                     else:
                         st.write("Admin NÃO encontrado.")
                 except Exception as e:
