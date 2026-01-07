@@ -26,7 +26,14 @@ EMAIL_PASS = os.getenv("GMAIL_APP_PASSWORD")
 # Assumindo que o ambiente já tem ou o usuário vai rodar onde tem.
 
 def get_credentials():
-    # Tenta pegar variáveis de ambiente primeiro, com fallback hardcoded
+    # Tenta pegar variáveis de ambiente ou Secrets do Streamlit
+    import streamlit as st
+    try:
+        if "GMAIL_APP_PASSWORD" in st.secrets:
+             return st.secrets["GMAIL_USER"], st.secrets["GMAIL_APP_PASSWORD"]
+    except:
+        pass
+
     user = os.getenv("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
     password = os.getenv("GMAIL_APP_PASSWORD", "").replace(" ", "")
     return user, password
@@ -37,12 +44,12 @@ import time
 
 def sync_up(file_path=LOCAL_DB_FILE, subject_tag=DB_SUBJECT_TAG):
     """Envia um arquivo local para o email (Salva no IMAP sem enviar email). Com compressão."""
-    # DISABLE ALL UPLOADS
-    return True, "Upload desativado globalmente."
-
+    """Envia um arquivo local para o email (Salva no IMAP sem enviar email). Com compressão."""
+    
     if not os.path.exists(file_path):
         return False, f"Arquivo local não encontrado: {file_path}"
         
+    # Bloqueia APENAS o backup cumulativo (o pesado)
     if subject_tag == CUMULATIVE_TAG:
         print("🚫 [Cloud Sync] Backup cumulativo desativado por solicitação.")
         return True, "Backup cumulativo desativado."
