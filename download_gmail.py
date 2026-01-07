@@ -20,7 +20,7 @@ EMAIL_USER = secrets.get("GMAIL_USER") if "GMAIL_USER" in secrets else os.enviro
 EMAIL_PASS = secrets.get("GMAIL_APP_PASSWORD") if "GMAIL_APP_PASSWORD" in secrets else os.environ.get("GMAIL_APP_PASSWORD", "")
 EMAIL_PASS = EMAIL_PASS.replace(" ", "")
 
-SEARCH_SENDER = os.environ.get("GMAIL_SENDER", "pedro.gomes@hospitaldecancer.com.br") 
+SEARCH_SENDER = secrets.get("GMAIL_SENDER") if "GMAIL_SENDER" in secrets else os.environ.get("GMAIL_SENDER", "pedro.gomes@hospitaldecancer.com.br") 
 SEARCH_SUBJECT = os.environ.get("GMAIL_SUBJECT", "") # Deixe vazio para ignorar
 DOWNLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados", "input")
 
