@@ -1111,11 +1111,20 @@ if st.session_state.df_resultado is not None:
             
         with c_filt3:
             # Filtro de Data
-            if col_data_ref is not None:
+            if col_data_ref is not None and not col_data_ref.dropna().empty:
                 min_date = col_data_ref.min()
                 max_date = col_data_ref.max()
+                
+                # Proteção contra NaT (Not a Time)
+                if pd.isna(min_date): min_date = datetime.now()
+                if pd.isna(max_date): max_date = datetime.now()
+                
+                # Garante que min <= max
+                if min_date > max_date: min_date = max_date
+                
                 date_range = st.date_input("Período", [min_date, max_date])
             else:
+                st.warning("Sem datas válidas para filtro.")
                 date_range = []
     
     # Aplica Filtros
