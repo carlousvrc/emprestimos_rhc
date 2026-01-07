@@ -213,13 +213,13 @@ if not st.session_state.logged_in:
 
 # --- Sidebar: Info do Usuário e Logout ---
 with st.sidebar:
-    st.header("Configurações")
-    if st.button("🗑️ Limpar Cache (Hard Reset)", type="primary"):
-        st.session_state.clear()
-        st.session_state.config_version = 11 # Force new version
-        st.rerun()
-        
-    st.divider()
+    if st.session_state.get('user_role') == 'admin':
+        st.header("Configurações")
+        if st.button("🗑️ Limpar Cache (Hard Reset)", type="primary"):
+            st.session_state.clear()
+            st.session_state.config_version = 11 # Force new version
+            st.rerun()
+        st.divider()
     
     # Debug Toast
     try:
