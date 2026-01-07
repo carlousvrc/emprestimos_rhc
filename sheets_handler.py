@@ -7,6 +7,10 @@ import json
 # URL da planilha fixa fornecida pelo usuário
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1UOYbkN1Ugo_PZyrRU9Q5WvYFEcsWkm6Y7uwGvyP_NF4/edit?usp=sharing"
 
+
+# Identificado via script como o ID 533520567
+TARGET_SHEET_NAME = "Análise Completa"
+
 def connect_to_sheets():
     """Conecta ao Google Sheets usando arquivo JSON ou secrets."""
     try:
@@ -39,10 +43,12 @@ def load_data_from_grids(sheet_name=None):
         sh = connect_to_sheets()
         if not sh: return None
         
-        # Pega a primeira aba se não especificada
-        if sheet_name:
-            worksheet = sh.worksheet(sheet_name)
-        else:
+        # Pega a aba correta (padrão Análise Completa)
+        target = sheet_name if sheet_name else TARGET_SHEET_NAME
+        try:
+            worksheet = sh.worksheet(target)
+        except:
+            print(f"Aba {target} não encontrada, tentando índice 0.")
             worksheet = sh.get_worksheet(0)
             
         data = worksheet.get_all_records()
@@ -58,10 +64,12 @@ def append_data_to_sheets(df, sheet_name=None):
         sh = connect_to_sheets()
         if not sh: return False
         
-        if sheet_name:
-            worksheet = sh.worksheet(sheet_name)
-        else:
+        target = sheet_name if sheet_name else TARGET_SHEET_NAME
+        try:
+            worksheet = sh.worksheet(target)
+        except:
             worksheet = sh.get_worksheet(0)
+
 
         # Prepara os dados para inserção
         # gspread espera lista de listas
