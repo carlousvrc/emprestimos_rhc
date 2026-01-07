@@ -6,3 +6,5 @@ plotly
 altair
 schedule
 pytz
+gspread
+oauth2client
