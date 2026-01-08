@@ -365,10 +365,10 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                             
                             if score_saida > score_entrada:
                                 temp_saida.append(df)
-                                st.toast(f"📄 Saída identificada: {f.name}")
+                                # st.toast(f"📄 Saída identificada: {f.name}")
                             elif score_entrada > score_saida:
                                 temp_entrada.append(df)
-                                st.toast(f"📄 Entrada identificada: {f.name}")
+                                # st.toast(f"📄 Entrada identificada: {f.name}")
                             else:
                                 st.warning(f"⚠️ Não foi possível identificar automaticamente: {f.name} (Ignorado)")
 
@@ -444,9 +444,21 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                                     'last_update': datetime.now()
                                 }, f)
                                 
-                            # success_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
-                            # if success_up:
-                            # st.success(f"✅ Histórico atualizado (Email)! (+{len(df_res_hist)} registros).")
+                            
+                            # 1. Sync Email
+                            success_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
+                            if success_up:
+                                st.success(f"✅ Histórico atualizado (Email)! (+{len(df_res_hist)} registros).")
+                            
+                            # 2. Sync Drive/Sheets
+                            try:
+                                import sheets_handler
+                                if sheets_handler.sync_full_report(df_final):
+                                    st.success("✅ Google Sheets (Base Drive) atualizado com sucesso!")
+                                else:
+                                    st.error("Falha ao atualizar Google Sheets.")
+                            except Exception as e_sh:
+                                st.error(f"Erro Sheets: {e_sh}")
                             
                             # --- Google Sheets Append (Admin) ---
                             try:

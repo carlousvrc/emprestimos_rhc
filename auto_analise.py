@@ -159,12 +159,12 @@ def executar_fluxo_diario(baixar_email=True):
                 'last_update': datetime.now()
             }, f)
         
-        # print("   Enviando DB atualizado para nuvem...")
-        # success_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
-        # if success_up:
-        #     print("✅ DB Cumulativo Atualizado e Sincronizado (Email)!")
-        # else:
-        #     print(f"⚠️ DB salvo localmente, mas falha no sync cloud: {msg_up}")
+        print("   Enviando DB atualizado para nuvem...")
+        success_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
+        if success_up:
+            print("✅ DB Cumulativo Atualizado e Sincronizado (Email)!")
+        else:
+            print(f"⚠️ DB salvo localmente, mas falha no sync cloud: {msg_up}")
             
         # --- Google Sheets Append ---
         try:
