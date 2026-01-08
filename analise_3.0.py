@@ -216,85 +216,9 @@ if not st.session_state.logged_in:
 # --- Sidebar: Info do Usuário e Logout ---
 with st.sidebar:
     if st.session_state.get('user_role') == 'admin':
-        st.header("Configurações")
-        if st.button("🗑️ Limpar Cache (Hard Reset)", type="primary"):
-            st.session_state.clear()
-            st.session_state.config_version = 11 # Force new version
-            st.rerun()
+        # st.header("Configurações") - Removido por solicitacao
+        pass
 
-        # Botão de Limpeza de Dados (Emergency)
-        if st.button("⚠️ Remover Dez/2025 (Permanente)"):
-            if st.session_state.df_resultado is not None:
-                df = st.session_state.df_resultado.copy()
-                # Garante data
-                if 'Data' in df.columns:
-                    df['DataObj'] = pd.to_datetime(df['Data'], errors='coerce')
-                    # Filtro Reverso: Tudo que NÃO for dez/2025
-                    mask_remove = (df['DataObj'].dt.month == 12) & (df['DataObj'].dt.year == 2025)
-                    df_clean = df[~mask_remove].drop(columns=['DataObj'])
-                    
-                    rows_removed = mask_remove.sum()
-                    if rows_removed > 0:
-                        import sheets_handler
-                        if sheets_handler.overwrite_data(df_clean):
-                            st.session_state.df_resultado = df_clean
-                            
-                            # --- NOVO: Atualizar também o DB Local (Persistência) ---
-                            try:
-                                db_path = remote_persistence.CUMULATIVE_DB_FILE
-                                if os.path.exists(db_path):
-                                    with open(db_path, 'rb') as f:
-                                        data_pkl = pickle.load(f)
-                                        df_pkl = data_pkl.get('df')
-                                    
-                                    if df_pkl is not None and not df_pkl.empty:
-                                         if 'Data' in df_pkl.columns:
-                                            # Garante conversão para datetime (mesma lógica usada acima)
-                                            df_pkl['DataObj_Clean'] = pd.to_datetime(df_pkl['Data'], errors='coerce')
-                                            # Filtra Dez/2025
-                                            mask_remove_pkl = (df_pkl['DataObj_Clean'].dt.month == 12) & (df_pkl['DataObj_Clean'].dt.year == 2025)
-                                            df_pkl_clean = df_pkl[~mask_remove_pkl].drop(columns=['DataObj_Clean'])
-                                            
-                                            rows_removed_pkl = mask_remove_pkl.sum()
-                                            
-                                            if rows_removed_pkl > 0:
-                                                with open(db_path, 'wb') as f:
-                                                    data_pkl['df'] = df_pkl_clean
-                                                    data_pkl['last_update'] = datetime.now()
-                                                    pickle.dump(data_pkl, f)
-                                                    # st.toast(f"💾 DB Local também limpo! ({rows_removed_pkl} registros)")
-                                                    pass
-                                                
-                                                # Tenta sync UP para garantir que nuvem também limpe
-                                                try:
-                                                    ok_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
-                                                    if ok_up:
-                                                        # st.toast("☁️ Nuvem sincronizada (Delete).")
-                                                        pass
-                                                    else:
-                                                        # st.toast(f"⚠️ Nuvem não sync: {msg_up}")
-                                                        pass
-                                                except:
-                                                    pass
-                                                    
-                                            else:
-                                                # st.toast("💾 DB Local já estava limpo.")
-                                                pass
-                            except Exception as e_pkl:
-                                st.error(f"Erro ao limpar DB local: {e_pkl}")
-
-                            # st.toast(f"✅ Removidos {rows_removed} registros de Dez/2025!")
-                            st.rerun()
-                        else:
-                            st.error("Falha ao salvar no Google Sheets.")
-                    else:
-                        st.warning("Nenhum registro de Dez/2025 encontrado na memória.")
-                else:
-                    st.error("Coluna Data não encontrada.")
-            else:
-                st.warning("Nenhum dado carregado para limpar.")
-
-        st.divider()
     
     # Debug Toast
     try:
