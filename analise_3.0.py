@@ -72,22 +72,22 @@ session_manager = get_session_manager()
 # --- Agendador em Background (Cron Job Simulado) ---
 def run_pending_jobs():
     """Função rodada pela thread em background."""
-    print("🕒 Iniciando loop do agendador em background...")
+    print("Iniciando loop do agendador em background...")
     while True:
         schedule.run_pending()
         time.sleep(60)
 
 def job_atualizacao():
     """Tarefa que roda a cada hora."""
-    print(f"⏰ [Auto-Update] Iniciando atualização agendada: {datetime.now()}")
+    print(f"[Auto-Update] Iniciando atualização agendada: {datetime.now()}")
     try:
         # Usa um container vazio pois não estamos no contexto da UI principal aqui
         # Apenas roda o fluxo backend
         sys.stdout = sys.__stdout__ # Garante log no console do servidor
         auto_analise.executar_fluxo_diario(baixar_email=True)
-        print("✅ [Auto-Update] Concluído com sucesso.")
+        print("[Auto-Update] Concluído com sucesso.")
     except Exception as e:
-        print(f"❌ [Auto-Update] Erro: {e}")
+        print(f"[Auto-Update] Erro: {e}")
 
 @st.cache_resource
 def start_background_scheduler():
@@ -132,7 +132,7 @@ if 'logged_in' not in st.session_state:
                 st.session_state.user_role = users_db[user_from_token]['role']
                 st.session_state.user_unit = users_db[user_from_token].get('unit')
                 st.session_state.user_name_display = users_db[user_from_token]['name']
-                print(f"🔄 Sessão restaurada para: {user_from_token}")
+                print(f"Sessão restaurada para: {user_from_token}")
 
 # Force Reload Fix for Timezone (Invalidate stale cache)
 if 'config_version' not in st.session_state or st.session_state.config_version != 11:
@@ -228,7 +228,7 @@ with st.sidebar:
         pass
     except:
         pass
-    st.title("👤 Usuário")
+    st.title("Usuário")
     if st.session_state.get('user_name_display'):
         st.write(f"**Nome:** {st.session_state.user_name_display}")
     if st.session_state.user_role:
@@ -254,7 +254,7 @@ with st.sidebar:
         
     if st.session_state.user_role == 'admin':
         st.divider()
-        st.subheader("⚙️ Administração")
+        st.subheader("Administração")
         # Checkbox com chave para persistência correta
         is_admin_checked = st.checkbox("Gerenciar Usuários", value=st.session_state.get('show_admin', False))
         if is_admin_checked:
@@ -265,10 +265,10 @@ with st.sidebar:
 # --- Área Administrativa (Apenas Admin) ---
 # Adiciona verificação redundante de role para segurança
 if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
-    st.title("⚙️ Gerenciamento de Usuários")
+    st.title("Gerenciamento de Usuários")
     
     # Criar novo usuário
-    with st.expander("➕ Criar Novo Usuário"):
+    with st.expander("Criar Novo Usuário"):
         with st.form("new_user"):
             new_user = st.text_input("Username")
             new_pass = st.text_input("Senha", type="password")
@@ -282,7 +282,7 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                     st.error("Erro ao criar usuário.")
     
     # Editar Usuário Existente
-    with st.expander("✏️ Editar Usuário"):
+    with st.expander("Editar Usuário"):
         all_users_edit = auth_manager.load_users()
         user_to_edit = st.selectbox("Selecione o Usuário", list(all_users_edit.keys()))
         
@@ -337,9 +337,9 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
     
     # Gerenciamento de Dados Históricos
     st.markdown("---")
-    st.subheader("📚 Importação de Histórico (Cumulativo)")
+    st.subheader("Importação de Histórico (Cumulativo)")
     
-    with st.expander("📤 Upload de Arquivos Antigos (Saída e Entrada)"):
+    with st.expander("Upload de Arquivos Antigos (Saída e Entrada)"):
         st.info("Selecione TODOS os arquivos (Saída e Entrada) de uma vez. O sistema identificará automaticamente qual é qual.")
         uploaded_files = st.file_uploader("Arquivos de Dados Pastas", accept_multiple_files=True, type=["xls", "xlsx", "csv"], key="hist_upload_all")
         
@@ -370,10 +370,10 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                                 temp_entrada.append(df)
                                 # st.toast(f"📄 Entrada identificada: {f.name}")
                             else:
-                                st.warning(f"⚠️ Não foi possível identificar automaticamente: {f.name} (Ignorado)")
+                                st.warning(f"Não foi possível identificar automaticamente: {f.name} (Ignorado)")
 
                         if not temp_saida or not temp_entrada:
-                            st.error("❌ É necessário pelo menos 1 arquivo de Saída e 1 de Entrada identificados.")
+                            st.error("É necessário pelo menos 1 arquivo de Saída e 1 de Entrada identificados.")
                         else:
                             # Concatena
                             df_s_concat = pd.concat(temp_saida, ignore_index=True)
@@ -425,17 +425,17 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                                 qtd_ignorados = len(df_res_hist) - len(df_novos)
                                 
                                 if qtd_ignorados > 0:
-                                    st.warning(f"⚠️ {qtd_ignorados} registros duplicados foram detectados e ignorados.")
+                                    st.warning(f"{qtd_ignorados} registros duplicados foram detectados e ignorados.")
                                 
                                 if not df_novos.empty:
                                     df_final = pd.concat([df_cumulativo, df_novos], ignore_index=True)
-                                    st.success(f"✅ {len(df_novos)} novos registros adicionados ao histórico.")
+                                    st.success(f"{len(df_novos)} novos registros adicionados ao histórico.")
                                 else:
                                     df_final = df_cumulativo
-                                    st.info("ℹ️ Nenhum registro novo para adicionar (todos duplicados).")
+                                    st.info("Nenhum registro novo para adicionar (todos duplicados).")
                             else:
                                 df_final = df_res_hist
-                                st.success(f"✅ Banco inicial criado com {len(df_final)} registros.")
+                                st.success(f"Banco inicial criado com {len(df_final)} registros.")
                                 
                             os.makedirs(os.path.dirname(db_path), exist_ok=True)
                             with open(db_path, 'wb') as f:
@@ -448,13 +448,13 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                             # 1. Sync Email
                             success_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
                             if success_up:
-                                st.success(f"✅ Histórico atualizado (Email)! (+{len(df_res_hist)} registros).")
+                                st.success(f"Histórico atualizado (Email)! (+{len(df_res_hist)} registros).")
                             
                             # 2. Sync Drive/Sheets
                             try:
                                 import sheets_handler
                                 if sheets_handler.sync_full_report(df_final):
-                                    st.success("✅ Google Sheets (Base Drive) atualizado com sucesso!")
+                                    st.success("Google Sheets (Base Drive) atualizado com sucesso!")
                                 else:
                                     st.error("Falha ao atualizar Google Sheets.")
                             except Exception as e_sh:
@@ -466,9 +466,9 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                                 st.info("Sincronizando com Google Sheets (Todas as Abas)...")
                                 # Usar df_final que contem o historico completo
                                 if sheets_handler.sync_full_report(df_final): 
-                                    st.success("✅ Google Sheets atualizado!")
+                                    st.success("Google Sheets atualizado!")
                                 else:
-                                    st.warning("⚠️ Falha ao salvar no Google Sheets.")
+                                    st.warning("Falha ao salvar no Google Sheets.")
                             except Exception as e_sh:
                                 st.error(f"Erro Sheets: {e_sh}")
                                 
@@ -786,7 +786,7 @@ if st.session_state.df_resultado is None:
                 'arquivo_saida': 'Google Sheets (Nuvem)',
                 'arquivo_entrada': '---',
                 'data_formatada': datetime.now().strftime("%d/%m/%Y"), # Data acesso
-                'modo': 'Nuvem (Google Sheets) ☁️'
+                'modo': 'Nuvem (Google Sheets)'
             }
             # Se carregou do sheets, pula o resto
             pass
@@ -814,7 +814,7 @@ if st.session_state.df_resultado is None:
                     'arquivo_saida': 'Banco de Dados Cumulativo',
                     'arquivo_entrada': '---',
                     'data_formatada': to_brazil_time(dados_db.get('last_update', datetime.now())).strftime("%d/%m/%Y"),
-                    'modo': 'Histórico Completo 📚'
+                    'modo': 'Historico Completo'
                 }
             except Exception as e:
                 st.warning(f"Erro ao ler DB Cumulativo: {e}. Tentando diário...")
@@ -841,7 +841,7 @@ if st.session_state.df_resultado is None:
                         'arquivo_saida': dados_auto['metadata']['arquivo_saida'],
                         'arquivo_entrada': dados_auto['metadata']['arquivo_entrada'],
                         'data_formatada': to_brazil_time(data_proc).strftime("%d/%m/%Y"),
-                        'modo': 'Diário (Automático) 🤖'
+                        'modo': 'Diario (Automatico)'
                     }
                 except Exception:
                     raise # Força cair no except abaixo que roda a automação
@@ -893,7 +893,7 @@ if st.session_state.df_resultado is None:
                         'arquivo_saida': dados_auto['metadata']['arquivo_saida'],
                         'arquivo_entrada': dados_auto['metadata']['arquivo_entrada'],
                         'data_formatada': to_brazil_time(dados_auto['metadata']['data_processamento']).strftime("%d/%m/%Y"),
-                        'modo': 'Automático (Sob Demanda) 🤖'
+                        'modo': 'Automatico (Sob Demanda)'
                     }
                     st.rerun()
                 else:
@@ -941,7 +941,7 @@ with col_title:
 
 # --- Status da Automação ---
 if st.session_state.df_resultado is None:
-    st.info("🤖 **Aguardando dados da automação...**")
+    st.info("**Aguardando dados da automacao...**")
     st.markdown("""
         O sistema processa novos arquivos automaticamente diariamente às 07:00.
         Se os dados não aparecerem, verifique se o serviço de agendamento está rodando.
@@ -1162,11 +1162,11 @@ if st.session_state.df_resultado is not None:
         
     with col_balanco3:
         p_pend = fmt_perc(valor_pendente, total_saida_periodo)
-        st.markdown(kpi_card("Pendentes", fmt_moeda(valor_pendente), f"<span class='kpi-trend trend-down'>⬇ {p_pend:.1f}% do total</span>", None, "b-orange", help_text="Valor total dos itens que ainda não foram recebidos"), unsafe_allow_html=True)
+        st.markdown(kpi_card("Pendentes", fmt_moeda(valor_pendente), f"<span class='kpi-trend trend-down'>- {p_pend:.1f}% do total</span>", None, "b-orange", help_text="Valor total dos itens que ainda não foram recebidos"), unsafe_allow_html=True)
 
     with col_balanco4:
         p_div = fmt_perc(valor_divergente_nc, total_entrada_periodo)
-        st.markdown(kpi_card("Divergência Itens Recebidos", fmt_moeda(valor_divergente_nc), f"<span class='kpi-trend trend-down'>⚠️ {p_div:.1f}% da entrada</span>", None, "b-red", help_text="Soma absoluta das diferenças dos itens recebidos com divergência"), unsafe_allow_html=True)
+        st.markdown(kpi_card("Divergência Itens Recebidos", fmt_moeda(valor_divergente_nc), f"<span class='kpi-trend trend-down'>! {p_div:.1f}% da entrada</span>", None, "b-red", help_text="Soma absoluta das diferenças dos itens recebidos com divergência"), unsafe_allow_html=True)
     
     st.divider()
 
@@ -1244,7 +1244,7 @@ if st.session_state.df_resultado is not None:
     
     # Expander com detalhamento de divergências de quantidade
     if qtd_divergente_count > 0:
-        with st.expander(f"📋 Detalhamento de Divergências de Quantidade ({qtd_divergente_count} itens)", expanded=False):
+        with st.expander(f"Detalhamento de Divergências de Quantidade ({qtd_divergente_count} itens)", expanded=False):
             df_qtd_div = df_filtered[
                 (df_filtered['Diferença Qtd'].notna()) & 
                 (df_filtered['Diferença Qtd'] != 0)
@@ -1330,8 +1330,8 @@ if st.session_state.df_resultado is not None:
         # Conta status
         status_counts = df_filtered['Status'].value_counts()
         
-        # Remove emojis das labels e define cores
-        clean_labels = [label.replace('✅ ', '').replace('❌ ', '').replace('⚠️ ', '') for label in status_counts.index]
+        # Remove emojis das labels e define cores (usando unicode escape para limpar se houver)
+        clean_labels = [label.replace('\u2705 ', '').replace('\u274C ', '').replace('\u26A0\uFE0F ', '') for label in status_counts.index]
         
         # Mapeamento de cores fixo
         color_map = {

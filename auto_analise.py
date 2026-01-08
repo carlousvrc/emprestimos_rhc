@@ -30,7 +30,7 @@ def executar_fluxo_diario(baixar_email=True):
         print(">> Etapa 1: Baixando arquivos do Gmail...")
         sucesso_download = download_gmail.download_daily_attachments()
         if not sucesso_download:
-            print("❌ Falha ao baixar arquivos ou nenhum arquivo encontrado. Abortando.")
+            print("Falha ao baixar arquivos ou nenhum arquivo encontrado. Abortando.")
             # Aqui entraria envio de alerta de erro
             return False
     else:
@@ -41,7 +41,7 @@ def executar_fluxo_diario(baixar_email=True):
     
     arquivos = glob.glob(os.path.join(INPUT_DIR, "*.xls*"))
     if len(arquivos) < 2:
-        print(f"❌ Número insuficiente de arquivos em {INPUT_DIR}. Encontrados: {len(arquivos)}")
+        print(f"Número insuficiente de arquivos em {INPUT_DIR}. Encontrados: {len(arquivos)}")
         return False
         
     arquivos_saida = []
@@ -63,7 +63,7 @@ def executar_fluxo_diario(baixar_email=True):
             print(f"   Erro ao ler {arq_path}: {e}")
 
     if not arquivos_saida or not arquivos_entrada:
-        print("❌ Não foi possível identificar pares de Saída/Entrada.")
+        print("Não foi possível identificar pares de Saída/Entrada.")
         return False
 
     # Consolidação
@@ -104,9 +104,9 @@ def executar_fluxo_diario(baixar_email=True):
                     'stats': stats
                 }
             }, f)
-        print(f"✅ Resultado salvo em: {RESULT_FILE}")
+        print(f"Resultado salvo em: {RESULT_FILE}")
     except Exception as e:
-        print(f"❌ Erro ao salvar resultado: {e}")
+        print(f"Erro ao salvar resultado: {e}")
         return False
         
     # (Opcional) Salvar histórico CSV também
@@ -144,7 +144,7 @@ def executar_fluxo_diario(baixar_email=True):
                 # Filter: Year=2025 AND Month=12
                 mask_blacklist = (df_final['DataObj_Temp'].dt.year == 2025) & (df_final['DataObj_Temp'].dt.month == 12)
                 if mask_blacklist.any():
-                    print(f"   🚫 Removendo {mask_blacklist.sum()} registros de Dez/2025 (Blacklist)...")
+                    print(f"   Removendo {mask_blacklist.sum()} registros de Dez/2025 (Blacklist)...")
                     df_final = df_final[~mask_blacklist].drop(columns=['DataObj_Temp'])
                 else:
                     if 'DataObj_Temp' in df_final.columns:
@@ -162,9 +162,9 @@ def executar_fluxo_diario(baixar_email=True):
         print("   Enviando DB atualizado para nuvem...")
         success_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
         if success_up:
-            print("✅ DB Cumulativo Atualizado e Sincronizado (Email)!")
+            print("DB Cumulativo Atualizado e Sincronizado (Email)!")
         else:
-            print(f"⚠️ DB salvo localmente, mas falha no sync cloud: {msg_up}")
+            print(f"DB salvo localmente, mas falha no sync cloud: {msg_up}")
             
         # --- Google Sheets Append ---
         try:
@@ -173,14 +173,14 @@ def executar_fluxo_diario(baixar_email=True):
             # MODIFICADO: Sincroniza todas as abas (Sobrescreve com o cumulativo atualizado)
             # Usar df_final que contém TUDO
             if sheets_handler.sync_full_report(df_final):
-                 print("✅ Google Sheets (Todas as Abas) atualizado com sucesso!")
+                 print("Google Sheets (Todas as Abas) atualizado com sucesso!")
             else:
-                 print("⚠️ Falha ao atualizar Google Sheets.")
+                 print("Falha ao atualizar Google Sheets.")
         except Exception as e_sheet:
-            print(f"❌ Erro crítico Sheets: {e_sheet}")
+            print(f"Erro crítico Sheets: {e_sheet}")
 
     except Exception as e:
-        print(f"❌ Erro ao atualizar DB Cumulativo: {e}")
+        print(f"Erro ao atualizar DB Cumulativo: {e}")
         # Não retorna False pois o dia foi processado com sucesso, apenas a persistencia histórica falhou
     
     print("=== Processo Concluído com Sucesso ===")
