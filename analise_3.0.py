@@ -262,24 +262,28 @@ with st.sidebar:
                                                     data_pkl['df'] = df_pkl_clean
                                                     data_pkl['last_update'] = datetime.now()
                                                     pickle.dump(data_pkl, f)
-                                                st.toast(f"💾 DB Local também limpo! ({rows_removed_pkl} registros)")
+                                                    # st.toast(f"💾 DB Local também limpo! ({rows_removed_pkl} registros)")
+                                                    pass
                                                 
                                                 # Tenta sync UP para garantir que nuvem também limpe
                                                 try:
                                                     ok_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
                                                     if ok_up:
-                                                        st.toast("☁️ Nuvem sincronizada (Delete).")
+                                                        # st.toast("☁️ Nuvem sincronizada (Delete).")
+                                                        pass
                                                     else:
-                                                        st.toast(f"⚠️ Nuvem não sync: {msg_up}")
+                                                        # st.toast(f"⚠️ Nuvem não sync: {msg_up}")
+                                                        pass
                                                 except:
                                                     pass
                                                     
                                             else:
-                                                st.toast("💾 DB Local já estava limpo.")
+                                                # st.toast("💾 DB Local já estava limpo.")
+                                                pass
                             except Exception as e_pkl:
                                 st.error(f"Erro ao limpar DB local: {e_pkl}")
 
-                            st.toast(f"✅ Removidos {rows_removed} registros de Dez/2025!")
+                            # st.toast(f"✅ Removidos {rows_removed} registros de Dez/2025!")
                             st.rerun()
                         else:
                             st.error("Falha ao salvar no Google Sheets.")
@@ -296,7 +300,8 @@ with st.sidebar:
     try:
         mode_debug = st.session_state.get('current_metadata', {}).get('modo', 'Desconhecido')
         rec_count = len(st.session_state.df_resultado) if st.session_state.df_resultado is not None else 0
-        st.toast(f"ℹ️ Versão: 11 | Modo: {mode_debug} | Regs: {rec_count}")
+        # st.toast(f"ℹ️ Versão: 11 | Modo: {mode_debug} | Regs: {rec_count}")
+        pass
     except:
         pass
     st.title("👤 Usuário")
@@ -812,14 +817,15 @@ class ToastNotifier:
         clean = line.strip()
         if not clean: return
         
-        # Detecta etapas e notifica
-        if ">> Etapa" in clean:
-            msg = clean.replace(">> ", "")
-            st.toast(msg)
-        elif "✅" in clean:
-            st.toast(clean)
-        elif "❌" in clean:
-            st.toast(clean)
+        # [SILENCED] Toasts removidos por solicitacao
+        # if ">> Etapa" in clean:
+        #     msg = clean.replace(">> ", "")
+        #     st.toast(msg)
+        # elif "✅" in clean:
+        #     st.toast(clean)
+        # elif "❌" in clean:
+        #     st.toast(clean)
+        pass
         
     def flush(self):
         self.original_stdout.flush()
