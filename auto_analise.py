@@ -137,6 +137,18 @@ def executar_fluxo_diario(baixar_email=True):
         else:
             print("   Criando novo DB Cumulativo...")
             df_final = df_resultado
+
+        # [NEW] HARD FILTER: Prevent Dec/2025 from coming back via raw files
+        if 'Data' in df_final.columns:
+                df_final['DataObj_Temp'] = pd.to_datetime(df_final['Data'], errors='coerce')
+                # Filter: Year=2025 AND Month=12
+                mask_blacklist = (df_final['DataObj_Temp'].dt.year == 2025) & (df_final['DataObj_Temp'].dt.month == 12)
+                if mask_blacklist.any():
+                    print(f"   🚫 Removendo {mask_blacklist.sum()} registros de Dez/2025 (Blacklist)...")
+                    df_final = df_final[~mask_blacklist].drop(columns=['DataObj_Temp'])
+                else:
+                    if 'DataObj_Temp' in df_final.columns:
+                        df_final = df_final.drop(columns=['DataObj_Temp'])
             
         print(f"   Total Final: {len(df_final)} registros.")
         

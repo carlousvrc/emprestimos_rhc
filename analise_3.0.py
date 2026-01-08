@@ -267,6 +267,47 @@ with st.sidebar:
                         import sheets_handler
                         if sheets_handler.overwrite_data(df_clean):
                             st.session_state.df_resultado = df_clean
+                            
+                            # --- NOVO: Atualizar também o DB Local (Persistência) ---
+                            try:
+                                db_path = remote_persistence.CUMULATIVE_DB_FILE
+                                if os.path.exists(db_path):
+                                    with open(db_path, 'rb') as f:
+                                        data_pkl = pickle.load(f)
+                                        df_pkl = data_pkl.get('df')
+                                    
+                                    if df_pkl is not None and not df_pkl.empty:
+                                         if 'Data' in df_pkl.columns:
+                                            # Garante conversão para datetime (mesma lógica usada acima)
+                                            df_pkl['DataObj_Clean'] = pd.to_datetime(df_pkl['Data'], errors='coerce')
+                                            # Filtra Dez/2025
+                                            mask_remove_pkl = (df_pkl['DataObj_Clean'].dt.month == 12) & (df_pkl['DataObj_Clean'].dt.year == 2025)
+                                            df_pkl_clean = df_pkl[~mask_remove_pkl].drop(columns=['DataObj_Clean'])
+                                            
+                                            rows_removed_pkl = mask_remove_pkl.sum()
+                                            
+                                            if rows_removed_pkl > 0:
+                                                with open(db_path, 'wb') as f:
+                                                    data_pkl['df'] = df_pkl_clean
+                                                    data_pkl['last_update'] = datetime.now()
+                                                    pickle.dump(data_pkl, f)
+                                                st.toast(f"💾 DB Local também limpo! ({rows_removed_pkl} registros)")
+                                                
+                                                # Tenta sync UP para garantir que nuvem também limpe
+                                                try:
+                                                    ok_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
+                                                    if ok_up:
+                                                        st.toast("☁️ Nuvem sincronizada (Delete).")
+                                                    else:
+                                                        st.toast(f"⚠️ Nuvem não sync: {msg_up}")
+                                                except:
+                                                    pass
+                                                    
+                                            else:
+                                                st.toast("💾 DB Local já estava limpo.")
+                            except Exception as e_pkl:
+                                st.error(f"Erro ao limpar DB local: {e_pkl}")
+
                             st.toast(f"✅ Removidos {rows_removed} registros de Dez/2025!")
                             st.rerun()
                         else:
@@ -956,46 +997,19 @@ col_logo, col_title, col_opts = st.columns([1, 4, 1])
 
 with col_opts:
     if st.button("Atualizar", help="Busca novos emails e atualiza os dados agora", use_container_width=True):
-        log_buffer = []  # Lista para acumular logs
-        
-        # Classe customizada para capturar E mostrar logs
-        class FullLogger:
-            def __init__(self):
-                self.original = sys.stdout
-                
-            def __enter__(self):
-                sys.stdout = self
-                return self
-                
-            def __exit__(self, exc_type, exc_value, traceback):
-                sys.stdout = self.original
-                
-            def write(self, s):
-                self.original.write(s) # Escreve no terminal real
-                if s.strip():
-                    log_buffer.append(s.strip())
-                    # Tenta converter em toast se for importante
-                    if ">>" in s or "✅" in s or "❌" in s:
-                         st.toast(s.replace(">>", "").strip())
-                         
-            def flush(self):
-                self.original.flush()
-
         try:
             with st.spinner("Processando atualização (pode demorar)..."):
-                with FullLogger():
+                # Captura logs apenas para Toasts, sem buffer visual
+                with ToastNotifier():
                     sucesso = auto_analise.executar_fluxo_diario(baixar_email=True)
-            
-            # Mostra o log completo para debug
-            with st.expander("📜 Log Detalhado da Execução", expanded=True):
-                st.code("\n".join(log_buffer))
             
             if sucesso:
                 st.success("Atualização Concluída!")
-                time.sleep(5) # Tempo para ler o log
+                time.sleep(2) # Tempo para ler o sucesso
+                time.sleep(2) # Tempo para ler o sucesso
                 st.rerun()
             else:
-                st.error("O robô rodou, mas indicou falha (veja o log acima).")
+                st.error("O robô rodou, mas indicou falha.")
                 
         except Exception as e:
             st.error(f"Erro Crítico: {e}")
@@ -1008,7 +1022,7 @@ with col_logo:
         st.warning("Logo?")
 
 with col_title:
-    st.title("Análise de Tranferências - Via Empréstimo")
+    st.title("Análise de Transferências - Via Empréstimo (v3.1 Clean)")
 
 
 

@@ -50,9 +50,10 @@ def sync_up(file_path=LOCAL_DB_FILE, subject_tag=DB_SUBJECT_TAG):
         return False, f"Arquivo local não encontrado: {file_path}"
         
     # Bloqueia APENAS o backup cumulativo (o pesado)
-    if subject_tag == CUMULATIVE_TAG:
-        print("🚫 [Cloud Sync] Backup cumulativo desativado por solicitação.")
-        return True, "Backup cumulativo desativado."
+    # [RE-ENABLED] Permitindo backup cumulativo para garantir integridade
+    # if subject_tag == CUMULATIVE_TAG:
+    #     print("🚫 [Cloud Sync] Backup cumulativo desativado por solicitação.")
+    #     return True, "Backup cumulativo desativado."
 
     user, password = get_credentials()
     if not user or not password:
