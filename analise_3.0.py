@@ -1022,7 +1022,7 @@ with col_logo:
         st.warning("Logo?")
 
 with col_title:
-    st.title("Análise de Transferências - Via Empréstimo (v3.1 Clean)")
+    st.title("Análise de Transferências - Via Empréstimo")
 
 
 
