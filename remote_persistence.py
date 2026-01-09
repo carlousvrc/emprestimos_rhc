@@ -17,13 +17,11 @@ CUMULATIVE_TAG = "[SYSTEM_DB_CUMULATIVE_BACKUP]"
 LOCAL_DB_FILE = "users.json"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CUMULATIVE_DB_FILE = os.path.join(BASE_DIR, "dados", "cumulative_db.pkl")
+BACKUP_FOLDER = "System_Backups"
 
 # Credenciais (Pega as mesmas do download_gmail.py)
-EMAIL_USER = "doc.analise.robo@gmail.com" # Hardcoded conforme padrão do projeto existente
-# Na prática deveria vir de ENV, mas manteremos padrão para funcionar direto
+EMAIL_USER = "doc.analise.robo@gmail.com" 
 EMAIL_PASS = os.getenv("GMAIL_APP_PASSWORD") 
-# Se não estiver no ENV, tentar hardcoded (USER NÃO FORNECEU A SENHA AQUI, VAMOS TENTAR LER DO DOWNLOAD_GMAIL SE PRECISAR)
-# Assumindo que o ambiente já tem ou o usuário vai rodar onde tem.
 
 def get_credentials():
     # Tenta pegar variáveis de ambiente ou Secrets do Streamlit
@@ -39,22 +37,14 @@ def get_credentials():
     return user, password
 
 import lzma
-
 import time
 
 def sync_up(file_path=LOCAL_DB_FILE, subject_tag=DB_SUBJECT_TAG):
-    """Envia um arquivo local para o email (Salva no IMAP sem enviar email). Com compressão."""
     """Envia um arquivo local para o email (Salva no IMAP sem enviar email). Com compressão."""
     
     if not os.path.exists(file_path):
         return False, f"Arquivo local não encontrado: {file_path}"
         
-    # Bloqueia APENAS o backup cumulativo (o pesado)
-    # [RE-ENABLED] Permitindo backup cumulativo para garantir integridade
-    # if subject_tag == CUMULATIVE_TAG:
-    #     print("🚫 [Cloud Sync] Backup cumulativo desativado por solicitação.")
-    #     return True, "Backup cumulativo desativado."
-
     user, password = get_credentials()
     if not user or not password:
         return False, "Credenciais de e-mail não encontradas."
@@ -73,7 +63,7 @@ def sync_up(file_path=LOCAL_DB_FILE, subject_tag=DB_SUBJECT_TAG):
 
         msg = MIMEMultipart()
         msg['From'] = user
-        msg['To'] = user # Irrelevante no APPEND, mas bom manter
+        msg['To'] = user 
         msg['Subject'] = f"{subject_tag} {datetime.datetime.now().isoformat()}"
         
         body = f"Backup automático: {os.path.basename(file_path)}"
@@ -92,9 +82,14 @@ def sync_up(file_path=LOCAL_DB_FILE, subject_tag=DB_SUBJECT_TAG):
         mail = imaplib.IMAP4_SSL("imap.gmail.com")
         mail.login(user, password)
         
-        # Salva na pasta 'INBOX' (ou outra se quiser), marcado como Visto (\Seen) para não notificar como não lido
-        # time.time() é usado para a data interna
-        mail.append('INBOX', '(\\Seen)', imaplib.Time2Internaldate(time.time()), msg.as_bytes())
+        # Cria e usa pasta dedicada para não poluir Inbox
+        try:
+             mail.create(BACKUP_FOLDER)
+        except:
+             pass # Já existe
+        
+        # Salva na pasta BACKUP_FOLDER
+        mail.append(BACKUP_FOLDER, '(\\Seen)', imaplib.Time2Internaldate(time.time()), msg.as_bytes())
         
         mail.logout()
         
@@ -102,7 +97,7 @@ def sync_up(file_path=LOCAL_DB_FILE, subject_tag=DB_SUBJECT_TAG):
         if temp_compressed and os.path.exists(temp_compressed):
             os.remove(temp_compressed)
             
-        print(f"✅ [Cloud Sync] Arquivo salvo no IMAP: {filename_only}")
+        print(f"✅ [Cloud Sync] Arquivo salvo em {BACKUP_FOLDER}: {filename_only}")
         return True, "Upload (Save) realizado com sucesso."
         
     except Exception as e:
@@ -119,14 +114,26 @@ def sync_down(target_file=LOCAL_DB_FILE, subject_tag=DB_SUBJECT_TAG):
     try:
         mail = imaplib.IMAP4_SSL("imap.gmail.com")
         mail.login(user, password)
-        mail.select("inbox")
+        
+        # Tenta selecionar pasta de Backup, se falhar vai pro Inbox (retrocompatibilidade)
+        res = mail.select(BACKUP_FOLDER)
+        if res[0] != 'OK':
+            print(f"⚠️ Pasta {BACKUP_FOLDER} não encontrada. Buscando na INBOX...")
+            mail.select("inbox")
         
         # Busca emails enviados por mim com o assunto específico
         status, messages = mail.search(None, f'(FROM "{user}" SUBJECT "{subject_tag}")')
         
         if status != "OK" or not messages[0]:
-            print(f"⚠️ [Cloud Sync] Nenhum backup encontrado na nuvem para {subject_tag}.")
-            return False, "Nenhum backup encontrado."
+            # Se não achou na pasta de backup E estavamos nela, tenta Inbox agora
+            if res[0] == 'OK': # Significa que olhamos na Backup folder
+                 print("   Não encontrado na pasta de Backup. Tentando INBOX antigas...")
+                 mail.select("inbox")
+                 status, messages = mail.search(None, f'(FROM "{user}" SUBJECT "{subject_tag}")')
+
+            if status != "OK" or not messages[0]:
+                print(f"⚠️ [Cloud Sync] Nenhum backup encontrado na nuvem para {subject_tag}.")
+                return False, "Nenhum backup encontrado."
             
         # Pega o último ID (mais recente)
         latest_email_id = messages[0].split()[-1]
