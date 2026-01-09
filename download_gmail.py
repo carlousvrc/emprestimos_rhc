@@ -31,7 +31,7 @@ if not EMAIL_PASS:
         if os.path.exists(secrets_path):
             secrets = toml.load(secrets_path)
             if "GMAIL_APP_PASSWORD" in secrets:
-                EMAIL_PASS = secrets["GMAIL_APP_PASSWORD"]
+                EMAIL_PASS = secrets["GMAIL_APP_PASSWORD"].replace(" ", "")
             if "GMAIL_USER" in secrets:
                 EMAIL_USER = secrets["GMAIL_USER"]
     except Exception as e:
@@ -45,7 +45,7 @@ if not EMAIL_PASS:
                         if "GMAIL_APP_PASSWORD" in line and "=" in line:
                             parts = line.split("=")
                             val = parts[1].strip().strip("'").strip('"')
-                            EMAIL_PASS = val
+                            EMAIL_PASS = val.replace(" ", "")
         except:
             pass
 
