@@ -10,17 +10,44 @@ import re
 # Para gerar sennha de app: https://myaccount.google.com/apppasswords
 # Configurações - Substitua pelos seus dados ou use variáveis de ambiente
 # Para gerar sennha de app: https://myaccount.google.com/apppasswords
+# Tenta carregar credenciais de várias fontes (Secrets Streamlit, TOML manual ou ENV)
+EMAIL_USER = os.environ.get("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
+EMAIL_PASS = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
+
 try:
     import streamlit as st
     if "GMAIL_USER" in st.secrets:
         EMAIL_USER = st.secrets["GMAIL_USER"]
+    if "GMAIL_APP_PASSWORD" in st.secrets:
         EMAIL_PASS = st.secrets["GMAIL_APP_PASSWORD"]
-    else:
-        EMAIL_USER = os.environ.get("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
-        EMAIL_PASS = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
 except:
-    EMAIL_USER = os.environ.get("GMAIL_USER", "gestao_mxm@grupohospitalcasa.com.br")
-    EMAIL_PASS = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
+    pass
+
+# Se ainda não tem senha, tenta ler secrets.toml manualmente (para uso fora do streamlit run)
+if not EMAIL_PASS:
+    try:
+        import toml
+        secrets_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".streamlit", "secrets.toml")
+        if os.path.exists(secrets_path):
+            secrets = toml.load(secrets_path)
+            if "GMAIL_APP_PASSWORD" in secrets:
+                EMAIL_PASS = secrets["GMAIL_APP_PASSWORD"]
+            if "GMAIL_USER" in secrets:
+                EMAIL_USER = secrets["GMAIL_USER"]
+    except Exception as e:
+        # print(f"Erro ao ler secrets.toml manual: {e}")
+        # Tenta parser simples caso toml nao esteja instalado
+        try:
+            secrets_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".streamlit", "secrets.toml")
+            if os.path.exists(secrets_path):
+                with open(secrets_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if "GMAIL_APP_PASSWORD" in line and "=" in line:
+                            parts = line.split("=")
+                            val = parts[1].strip().strip("'").strip('"')
+                            EMAIL_PASS = val
+        except:
+            pass
 
 SEARCH_SENDER = os.environ.get("GMAIL_SENDER", "pedro.gomes@hospitaldecancer.com.br") 
 SEARCH_SUBJECT = os.environ.get("GMAIL_SUBJECT", "") # Deixe vazio para ignorar
