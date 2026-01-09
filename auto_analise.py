@@ -121,8 +121,16 @@ def executar_fluxo_diario(baixar_email=True):
         # 1. Baixar versão mais atual da nuvem
         if not os.path.exists(db_path):
              print("   Baixando DB existente da nuvem...")
-             remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
-        
+             success_down, msg_down = remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
+             if not success_down:
+                 # CRITICAL SAFETY CHECK:
+                 # Se falhar o download, NÃO podemos assumir que é um DB novo, pois isso sobrescreveria o histórico
+                 # a menos que seja explicitamente a primeira execução (que não deve ocorrer em prod sem setup)
+                 print(f"❌ ERRO CRÍTICO: Falha ao baixar histórico: {msg_down}")
+                 print("ABORTANDO ATUALIZAÇÃO DO HISTÓRICO PARA EVITAR PERDA DE DADOS.")
+                 # Salva apenas o resultado diário (já feito acima) e sai
+                 return True 
+
         df_cumulativo = None
         if os.path.exists(db_path):
             with open(db_path, 'rb') as f:
@@ -135,7 +143,12 @@ def executar_fluxo_diario(baixar_email=True):
             df_final = pd.concat([df_cumulativo, df_resultado], ignore_index=True)
             df_final = df_final.drop_duplicates()
         else:
-            print("   Criando novo DB Cumulativo...")
+            # Só cai aqui se o arquivo existir mas estiver vazio/corrompido, ou se a lógica acima permitir
+            print("⚠️ AVISO: DB Cumulativo não encontrado localmente (mas sync falhou ou não existe).")
+            # Se chegamos aqui sem DB, temos um problema potencial. 
+            # Mas se o sync_down retornou False acima, já teríamos saído.
+            # Se retornou True mas não criou arquivo (estranho), ou se não existia na nuvem (primeira vez ever)
+            print("   Criando novo DB Cumulativo (Primeira execução ou Reset)...")
             df_final = df_resultado
 
         # [NEW] HARD FILTER: Prevent Dec/2025 from coming back via raw files

@@ -768,34 +768,12 @@ class ToastNotifier:
 
 if st.session_state.df_resultado is None:
     try:
-        # TENTA CARREGAR DO GOOGLE SHEETS (PRIORIDADE 1)
-        # TENTA CARREGAR DO GOOGLE SHEETS (PRIORIDADE 1)
-        import sheets_handler
-        df_sheets = sheets_handler.load_data_from_grids()
-        # df_sheets = None
+        # TENTA CARREGAR DB CUMULATIVO (PRIORIDADE 1 - Local/Backup)
+        # TENTA CARREGAR DB CUMULATIVO (PRIORIDADE 1 - Local/Backup)
+        import remote_persistence
+        db_path = remote_persistence.CUMULATIVE_DB_FILE
         
-        if df_sheets is not None and not df_sheets.empty:
-            # Converte colunas de data (Sheets retorna strings)
-            if 'Data' in df_sheets.columns:
-                df_sheets['Data'] = pd.to_datetime(df_sheets['Data'], errors='coerce')
-            if 'Data Processamento' in df_sheets.columns:
-                df_sheets['Data Processamento'] = pd.to_datetime(df_sheets['Data Processamento'], errors='coerce')
-                
-            st.session_state.df_resultado = df_sheets
-            st.session_state.current_metadata = {
-                'arquivo_saida': 'Google Sheets (Nuvem)',
-                'arquivo_entrada': '---',
-                'data_formatada': datetime.now().strftime("%d/%m/%Y"), # Data acesso
-                'modo': 'Nuvem (Google Sheets)'
-            }
-            # Se carregou do sheets, pula o resto
-            pass
-        else:
-            # TENTA CARREGAR DB CUMULATIVO (PRIORIDADE 2)
-            import remote_persistence
-            db_path = remote_persistence.CUMULATIVE_DB_FILE
-        
-        # Se nao existe, tenta sync down rapido (se falhar, usa diario)
+        # Se nao existe, tenta sync down rapido (se falhar, tenta sheets)
         if not os.path.exists(db_path):
             with st.spinner("Sincronizando banco de dados..."):
                  success, msg = remote_persistence.sync_down(db_path, remote_persistence.CUMULATIVE_TAG)
@@ -817,8 +795,38 @@ if st.session_state.df_resultado is None:
                     'modo': 'Historico Completo'
                 }
             except Exception as e:
-                st.warning(f"Erro ao ler DB Cumulativo: {e}. Tentando diário...")
-                raise FileNotFoundError("Force diario")
+                st.warning(f"Erro ao ler DB Cumulativo: {e}. Tentando fontes alternativas...")
+                # Não raise, tenta fallback
+
+        # SE FALHOU LOCAL, TENTA CARREGAR DO GOOGLE SHEETS (PRIORIDADE 2)
+        if st.session_state.df_resultado is None:
+            try:
+                import sheets_handler
+                df_sheets = sheets_handler.load_data_from_grids()
+                
+                if df_sheets is not None and not df_sheets.empty:
+                    # Converte colunas de data (Sheets retorna strings)
+                    if 'Data' in df_sheets.columns:
+                        df_sheets['Data'] = pd.to_datetime(df_sheets['Data'], errors='coerce')
+                    if 'Data Processamento' in df_sheets.columns:
+                        df_sheets['Data Processamento'] = pd.to_datetime(df_sheets['Data Processamento'], errors='coerce')
+                        
+                    st.session_state.df_resultado = df_sheets
+                    st.session_state.current_metadata = {
+                        'arquivo_saida': 'Google Sheets (Nuvem)',
+                        'arquivo_entrada': '---',
+                        'data_formatada': datetime.now().strftime("%d/%m/%Y"), # Data acesso
+                        'modo': 'Nuvem (Google Sheets)'
+                    }
+                else:
+                    raise Exception("Sheets vazio")
+            except Exception:
+                 # Se falhar Sheets, vai pro Diário
+                 pass
+
+        if st.session_state.df_resultado is None:
+             # Fallback final se nada carregou
+             pass
         
         else:
             # Fallback para Lógica Antiga (Diário)
