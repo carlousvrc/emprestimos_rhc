@@ -4,6 +4,7 @@ import { promisify } from 'util'
 import * as os from 'os'
 import * as fs from 'fs'
 import { join } from 'path'
+import { createClient } from '@supabase/supabase-js'
 
 const execAsync = promisify(exec)
 
@@ -80,7 +81,6 @@ except Exception as e:
             // Envia para Supabase
             const items = pyResult.data;
 
-            import { createClient } from '@supabase/supabase-js'
             const supabaseAdmin = createClient(
                 process.env.NEXT_PUBLIC_SUPABASE_URL!,
                 process.env.SUPABASE_SERVICE_ROLE_KEY!
