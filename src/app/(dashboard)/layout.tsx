@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { LogOut, UserCircle2, Building2, ShieldCheck } from 'lucide-react'
 import { signout } from '@/utils/supabase/server'
 
 export default async function DashboardLayout({
@@ -25,44 +25,80 @@ export default async function DashboardLayout({
     .single()
 
   return (
-    <div className="flex min-h-screen bg-white font-sans text-[#31333f]">
-      {/* Streamlit Custom Sidebar */}
-      <aside className="w-[336px] bg-[#F0F2F6] flex-shrink-0 flex flex-col transition-all duration-300">
-        <div className="px-6 py-12 flex-1 flex flex-col">
-          <h2 className="text-xl font-bold text-[#002D62] mb-6 tracking-tight">Usuário Autenticado</h2>
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
 
-          <div className="space-y-4 text-[15px] text-[#31333f] mb-8">
-            <div>
-              <span className="font-semibold block mb-0.5">Nome</span>
-              {profile?.name || user.email}
-            </div>
-            <div>
-              <span className="font-semibold block mb-0.5">Perfil</span>
-              {profile?.role || 'Usuário'}
-            </div>
-            {profile?.unit && (
-              <div>
-                <span className="font-semibold block mb-0.5">Unidade</span>
-                {profile.unit}
+      {/* Modern Dashboard Sidebar */}
+      <aside className="w-[300px] bg-white border-r border-slate-200 flex-shrink-0 flex flex-col transition-all duration-300 shadow-sm z-10">
+
+        {/* App Branding */}
+        <div className="px-6 py-8 border-b border-slate-100 flex items-center gap-3">
+          <div className="bg-[#001D6D] p-2 rounded-lg">
+            <div className="text-[#F37021] text-xl font-black leading-none">⌂</div>
+          </div>
+          <div>
+            <h2 className="text-[17px] font-bold text-[#001D6D] leading-tight">Análise RHC</h2>
+            <span className="text-xs text-slate-500 font-medium">Via Empréstimo</span>
+          </div>
+        </div>
+
+        {/* User Profile Card */}
+        <div className="px-6 py-8 flex-1 flex flex-col overflow-y-auto">
+
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 mb-8 mt-2">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-5">Sessão Atual</h3>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
+                  <UserCircle2 size={18} strokeWidth={2.5} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] text-slate-400 font-bold uppercase">Nome</span>
+                  <span className="text-[14px] font-semibold text-slate-700 truncate max-w-[160px]" title={profile?.name || user.email}>
+                    {profile?.name || user.email?.split('@')[0]}
+                  </span>
+                </div>
               </div>
-            )}
+
+              <div className="flex items-center gap-3">
+                <div className="bg-orange-100 text-orange-600 p-2 rounded-lg">
+                  <ShieldCheck size={18} strokeWidth={2.5} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] text-slate-400 font-bold uppercase">Perfil</span>
+                  <span className="text-[14px] font-medium text-slate-700">{profile?.role || 'Usuário Padrão'}</span>
+                </div>
+              </div>
+
+              {profile?.unit && (
+                <div className="flex items-center gap-3">
+                  <div className="bg-emerald-100 text-emerald-600 p-2 rounded-lg">
+                    <Building2 size={18} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] text-slate-400 font-bold uppercase">Unidade Base</span>
+                    <span className="text-[14px] font-medium text-slate-700">{profile.unit}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="mt-auto pt-6 border-t border-[#D3D4D6]">
-            {/* Streamlit Secondary Button Style */}
+          <div className="mt-auto pt-6">
             <form action={signout}>
-              <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border border-[#caced1] text-[#31333F] rounded-lg hover:border-[#F37021] hover:text-[#F37021] transition-colors font-semibold">
-                <LogOut size={16} />
-                <span>Sair do Sistema</span>
+              <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all font-semibold text-sm shadow-sm">
+                <LogOut size={16} strokeWidth={2.5} />
+                <span>Encerrar Sessão</span>
               </button>
             </form>
           </div>
         </div>
       </aside>
 
-      {/* Main Content analogous to layout="wide" in Streamlit */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="px-4 md:px-12 lg:px-[6rem] py-12 w-full max-w-[1200px] mx-auto">
+      {/* Main Content Area with soft background */}
+      <main className="flex-1 overflow-y-auto relative bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed">
+        <div className="absolute inset-0 bg-slate-50/90 z-0 pointer-events-none"></div>
+        <div className="relative z-10 px-6 md:px-10 lg:px-14 py-10 w-full max-w-[1400px] mx-auto">
           {children}
         </div>
       </main>
