@@ -1,0 +1,14 @@
+src/utils/supabase/client.ts(1,37): error TS2307: Cannot find module '@supabase/ssr' or its corresponding type declarations.
+src/utils/supabase/middleware.ts(1,36): error TS2307: Cannot find module '@supabase/ssr' or its corresponding type declarations.
+src/utils/supabase/middleware.ts(17,24): error TS7006: Parameter 'cookiesToSet' implicitly has an 'any' type.
+src/utils/supabase/middleware.ts(18,45): error TS7031: Binding element 'name' implicitly has an 'any' type.
+src/utils/supabase/middleware.ts(18,51): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/utils/supabase/middleware.ts(18,58): error TS7031: Binding element 'options' implicitly has an 'any' type.
+src/utils/supabase/middleware.ts(22,45): error TS7031: Binding element 'name' implicitly has an 'any' type.
+src/utils/supabase/middleware.ts(22,51): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/utils/supabase/middleware.ts(22,58): error TS7031: Binding element 'options' implicitly has an 'any' type.
+src/utils/supabase/server.ts(3,36): error TS2307: Cannot find module '@supabase/ssr' or its corresponding type declarations.
+src/utils/supabase/server.ts(18,24): error TS7006: Parameter 'cookiesToSet' implicitly has an 'any' type.
+src/utils/supabase/server.ts(20,49): error TS7031: Binding element 'name' implicitly has an 'any' type.
+src/utils/supabase/server.ts(20,55): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/utils/supabase/server.ts(20,62): error TS7031: Binding element 'options' implicitly has an 'any' type.

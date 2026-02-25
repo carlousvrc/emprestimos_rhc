@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.97.0",
+    "@types/string-similarity": "^4.0.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
@@ -21,8 +23,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
+    "@types/node": "^20.19.33",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",

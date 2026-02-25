@@ -212,8 +212,8 @@ export function calcularSimilaridadePrecalc(comp1: ComponentesProduto, comp2: Co
             score += 20
             detalhes.push("Conc:✓")
         } else {
-            const nums1 = c1.match(/\d+\.?\d*/g) || []
-            const nums2 = c2.match(/\d+\.?\d*/g) || []
+            const nums1: string[] = c1.match(/\d+\.?\d*/g) || []
+            const nums2: string[] = c2.match(/\d+\.?\d*/g) || []
             const comum = nums1.filter(n => nums2.includes(n))
 
             if (comum.length > 0 && comum.length >= nums1.length * 0.5) {

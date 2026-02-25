@@ -1,0 +1,12 @@
+src/app/api/process/route.ts(2,23): error TS2307: Cannot find module 'xlsx' or its corresponding type declarations.
+src/app/layout.tsx(3,24): error TS2307: Cannot find module 'lucide-react' or its corresponding type declarations.
+src/app/page.tsx(4,66): error TS2307: Cannot find module 'lucide-react' or its corresponding type declarations.
+src/app/page.tsx(32,50): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(iterable: Iterable<File> | ArrayLike<File>): File[]', gave the following error.
+    Argument of type 'FileList | null' is not assignable to parameter of type 'Iterable<File> | ArrayLike<File>'.
+      Type 'null' is not assignable to type 'Iterable<File> | ArrayLike<File>'.
+  Overload 2 of 4, '(arrayLike: ArrayLike<File>): File[]', gave the following error.
+    Argument of type 'FileList | null' is not assignable to parameter of type 'ArrayLike<File>'.
+      Type 'null' is not assignable to type 'ArrayLike<File>'.
+src/utils/analiseCore.ts(1,30): error TS2307: Cannot find module 'string-similarity' or its corresponding type declarations.
+src/utils/analiseCore.ts(217,60): error TS2345: Argument of type 'string' is not assignable to parameter of type 'never'.

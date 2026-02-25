@@ -23,13 +23,13 @@ export default function DashboardPage() {
     e.preventDefault()
     setIsDragging(false)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files)])
+      setFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files as FileList)])
     }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFiles((prev) => [...prev, ...Array.from(e.target.files)])
+      setFiles((prev) => [...prev, ...Array.from(e.target.files as FileList)])
     }
   }
 
