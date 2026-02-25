@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
-import { LogOut, User, Key, Building } from 'lucide-react'
+import { LogOut, Home, History } from 'lucide-react'
 import { signout } from '@/utils/supabase/server'
 
 export default async function DashboardLayout({
@@ -25,78 +25,49 @@ export default async function DashboardLayout({
     .single()
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] font-sans text-slate-800 overflow-hidden">
+    <div className="flex h-screen bg-[#F0F2F6] font-sans text-[#001A72] overflow-hidden">
 
-      {/* Financeiro-Style Dark Sidebar */}
-      <aside className="w-[300px] bg-slate-950 text-slate-300 flex-shrink-0 flex flex-col transition-all duration-300 shadow-2xl z-10 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-transparent pointer-events-none"></div>
+      {/* Sidebar (Left, Fixed): Dark Blue Background */}
+      <aside className="w-[300px] flex-shrink-0 flex flex-col transition-all duration-300 shadow-2xl z-10 text-white" style={{ backgroundColor: '#001A72' }}>
 
-        {/* App Branding */}
-        <div className="relative px-6 py-8 border-b border-slate-800/60 flex items-center justify-center flex-col">
-          <div className="bg-white p-3 rounded-xl shadow-lg mb-4">
-            <img src="/logo.png" alt="Logo" className="h-10 object-contain" />
-          </div>
-          <h2 className="text-[18px] font-bold text-white leading-tight mt-2 text-center">
-            Análise RHC
-          </h2>
-          <span className="text-xs text-orange-500 font-bold uppercase tracking-widest mt-1">Financeiro</span>
+        {/* User Info at the Top */}
+        <div className="px-6 py-8 border-b border-white/10 flex flex-col gap-1">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 mb-3">Usuário Autenticado</h2>
+          <p className="text-xl font-bold truncate" title={profile?.name || user.email}>
+            {profile?.name || user.email?.split('@')[0]}
+          </p>
+          <p className="text-[13px] font-medium text-white/80">{profile?.role || 'Usuário Padrão'}</p>
+          {profile?.unit && (
+            <p className="text-[13px] font-medium text-white/80 mt-1">Unidade: {profile.unit}</p>
+          )}
         </div>
 
-        {/* User Profile Info */}
-        <div className="px-6 py-8 flex-1 flex flex-col overflow-y-auto relative">
-          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4">Seus Dados</h3>
+        {/* Navigation Links */}
+        <div className="px-4 py-6 flex-1 flex flex-col gap-2">
+          <a href="/" className="flex items-center gap-3 px-4 py-3 bg-white/10 text-white rounded-lg font-semibold transition-colors">
+            <Home size={18} />
+            <span>Dashboard</span>
+          </a>
+          <a href="#" className="flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/5 hover:text-white rounded-lg font-semibold transition-colors">
+            <History size={18} />
+            <span>Histórico</span>
+          </a>
+        </div>
 
-          <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800/80 mb-8 mt-2 space-y-4 shadow-inner">
-
-            <div className="flex items-center gap-3">
-              <div className="bg-indigo-500/10 text-indigo-400 p-2 rounded-lg">
-                <User size={16} strokeWidth={2.5} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Nome</span>
-                <span className="text-[13px] font-medium text-slate-200 truncate max-w-[160px]" title={profile?.name || user.email}>
-                  {profile?.name || user.email?.split('@')[0]}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="bg-orange-500/10 text-orange-500 p-2 rounded-lg">
-                <Key size={16} strokeWidth={2.5} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Acesso</span>
-                <span className="text-[13px] font-medium text-slate-200">{profile?.role || 'Usuário Padrão'}</span>
-              </div>
-            </div>
-
-            {profile?.unit && (
-              <div className="flex items-center gap-3">
-                <div className="bg-emerald-500/10 text-emerald-400 p-2 rounded-lg">
-                  <Building size={16} strokeWidth={2.5} />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase">Unidade Base</span>
-                  <span className="text-[13px] font-medium text-slate-200">{profile.unit}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-auto pt-6 border-t border-slate-800/60">
-            <form action={signout}>
-              <button className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl hover:bg-red-500/20 hover:text-red-400 transition-all font-bold text-sm">
-                <LogOut size={16} strokeWidth={2.5} />
-                <span>Sair da Conta</span>
-              </button>
-            </form>
-          </div>
+        {/* Logout Button at bottom */}
+        <div className="mt-auto px-6 pb-8 pt-4">
+          <form action={signout}>
+            <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-white/20 text-white rounded-lg hover:bg-white/10 transition-all font-semibold">
+              <LogOut size={18} />
+              <span>Sair da Conta</span>
+            </button>
+          </form>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto bg-[#F8FAFC]">
-        <div className="px-6 md:px-10 lg:px-14 py-10 w-full max-w-[1400px] mx-auto">
+      {/* Main Content Area (Right) */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="px-6 md:px-10 py-10 w-full mx-auto max-w-[1600px]">
           {children}
         </div>
       </main>

@@ -1,284 +1,356 @@
 'use client'
 
-import { useState } from 'react'
-import { CloudUpload, X, Check, AlertTriangle, FileText, ChevronRight } from 'lucide-react'
+import React, { useState } from 'react'
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { RefreshCw, Calendar as CalendarIcon, Filter } from 'lucide-react'
 
-export default function DashboardPage() {
-  const [files, setFiles] = useState<File[]>([])
-  const [isDragging, setIsDragging] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [results, setResults] = useState<any[]>([])
-  const [stats, setStats] = useState<any>(null)
+// Shadcn UI Components
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
+import { format } from 'date-fns'
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }
+// --- MOCK DATA ---
+const pieData = [
+  { name: 'Conforme', value: 75, color: '#00C853' },
+  { name: 'Não Conforme', value: 10, color: '#FF4444' },
+  { name: 'Não Recebido', value: 15, color: '#FF9800' },
+]
 
-  const handleDragLeave = () => {
-    setIsDragging(false)
-  }
+const barData = [
+  { name: 'Hosp. Central', value: 150 },
+  { name: 'Hosp. Zona Sul', value: 80 },
+  { name: 'Hosp. Norte', value: 65 },
+  { name: 'Clinica Leste', value: 40 },
+  { name: 'Hosp. Oeste', value: 15 },
+]
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files as FileList)])
-    }
-  }
+const tableData = [
+  {
+    date: '24/10/2026',
+    origem: 'Hospital Central',
+    destino: 'Clínica Leste',
+    produto: 'Dipirona 500mg',
+    valor: 'R$ 1.200,00',
+    diferenca: 0,
+    status: 'Conforme',
+  },
+  {
+    date: '24/10/2026',
+    origem: 'Hospital Norte',
+    destino: 'Hospital Central',
+    produto: 'Seringa 10ml',
+    valor: 'R$ 800,00',
+    diferenca: -50,
+    status: 'Não Conforme',
+  },
+  {
+    date: '23/10/2026',
+    origem: 'Hospital Zona Sul',
+    destino: 'Hospital Oeste',
+    produto: 'Luvas Cirúrgicas',
+    valor: 'R$ 3.500,00',
+    diferenca: 0,
+    status: 'Não Recebido',
+  },
+  {
+    date: '23/10/2026',
+    origem: 'Hospital Central',
+    destino: 'Hospital Zona Sul',
+    produto: 'Omeprazol 20mg',
+    valor: 'R$ 450,00',
+    diferenca: 0,
+    status: 'Conforme',
+  },
+]
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFiles((prev) => [...prev, ...Array.from(e.target.files as FileList)])
-    }
-  }
-
-  const processFiles = async () => {
-    if (files.length === 0) return
-    setLoading(true)
-
-    const formData = new FormData()
-    files.forEach(f => formData.append('files', f))
-
-    try {
-      const response = await fetch('/api/process', {
-        method: 'POST',
-        body: formData
-      })
-
-      const resData = await response.json()
-      if (resData.success) {
-        setResults(resData.data)
-        setStats(resData.stats)
-      } else {
-        alert(resData.error || "Erro no processamento")
-      }
-    } catch (err) {
-      alert("Erro ao conectar com servidor")
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
+export default function Dashboard() {
+  const [date, setDate] = useState<Date | undefined>(new Date())
 
   return (
-    <div className="space-y-8 font-sans text-slate-800 pb-16">
+    <div className="flex flex-col gap-8 pb-10 min-h-screen bg-[#F0F2F6]">
 
-      {/* Title Header Financial App Style */}
-      <div className="flex flex-col mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-          Conciliação de Transferências
+      {/* 1. Header Area */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: '#001A72' }}>
+          Análise de Transferências - Via Empréstimo
         </h1>
-        <p className="text-slate-500 text-sm mt-1">Ferramenta de validação ERP (Saída vs Entrada)</p>
+        <Button
+          style={{ backgroundColor: '#E87722', color: '#FFFFFF' }}
+          className="hover:opacity-90 transition-opacity flex items-center gap-2 px-6 py-5 rounded-md shadow-md font-semibold"
+        >
+          <RefreshCw size={18} />
+          Atualizar Dados
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Upload Column (Takes 2 columns space) */}
-        <div className="lg:col-span-2 space-y-4">
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-              <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
-                <FileText size={16} className="text-orange-500" /> Nova Análise
-              </h2>
-            </div>
-
-            <div className="p-6">
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`
-                    border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center
-                    transition-all duration-200 cursor-pointer
-                    ${isDragging ? 'border-orange-500 bg-orange-50/50' : 'border-slate-300 bg-slate-50 hover:border-orange-400 hover:bg-slate-100/50'}
-                  `}
-                onClick={() => document.getElementById('file-upload')?.click()}
-              >
-                <div className={`p-4 rounded-full mb-3 ${isDragging ? 'bg-orange-100 text-orange-600' : 'bg-slate-200 text-slate-500'}`}>
-                  <CloudUpload size={32} strokeWidth={2} />
+      {/* 2. Filters Section (Accordion) */}
+      <Card className="bg-[#FFFFFF] border-none shadow-sm rounded-xl">
+        <CardContent className="p-1">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="filters" className="border-none">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline text-[#001A72] font-semibold text-base flex justify-start gap-3">
+                <div className="flex items-center gap-2">
+                  <Filter size={18} />
+                  <span>Filtros de Análise Reflexiva</span>
                 </div>
-                <p className="text-slate-700 font-semibold mb-1">
-                  {loading ? 'Analisando os Dados...' : 'Arraste planilhas XLS/CSV para esta área'}
-                </p>
-                <p className="text-sm text-slate-400 font-medium mb-6">Você pode selecionar múltiplos arquivos (Saída e Entrada)</p>
-
-                <button className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold text-sm rounded-lg hover:border-slate-400 hover:bg-slate-50 transition-colors shadow-sm">
-                  Selecionar Arquivos
-                </button>
-
-                <input
-                  id="file-upload"
-                  type="file"
-                  multiple
-                  accept=".xls,.xlsx,.csv"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Selected Files List */}
-              {files.length > 0 && !loading && (
-                <div className="mt-6 pt-6 border-t border-slate-100">
-                  <h3 className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                    Fila de Processamento ({files.length})
-                  </h3>
-
-                  <div className="flex flex-col gap-2 mb-6">
-                    {files.map((file, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-slate-50 border border-slate-200 p-3 rounded-lg group">
-                        <div className="flex items-center gap-3 w-full overflow-hidden">
-                          <span className="text-slate-400">📄</span>
-                          <span className="font-semibold text-slate-700 text-sm truncate">{file.name}</span>
-                          <span className="text-slate-400 text-xs ml-auto shrink-0 font-medium">{(file.size / 1024).toFixed(1)} KB</span>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setFiles(files.filter((_, i) => i !== idx)); }}
-                          className="ml-4 text-slate-400 hover:text-red-500 p-1 rounded-md hover:bg-red-50 transition-colors"
-                        >
-                          <X size={16} strokeWidth={2.5} />
-                        </button>
-                      </div>
-                    ))}
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-4 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Status Dropdown */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold text-[#001A72]">Status</label>
+                    <Select>
+                      <SelectTrigger className="w-full border-slate-200">
+                        <SelectValue placeholder="Todos os Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos os Status</SelectItem>
+                        <SelectItem value="conforme">Conforme</SelectItem>
+                        <SelectItem value="nao_conforme">Não Conforme</SelectItem>
+                        <SelectItem value="pendente">Pendente / Não Recebido</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <button
-                    onClick={processFiles}
-                    className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold text-sm rounded-lg hover:shadow-lg hover:shadow-orange-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                  >
-                    Processar Dados <ChevronRight size={18} strokeWidth={3} />
-                  </button>
+                  {/* Origem/Destino Dropdown */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold text-[#001A72]">Unidade</label>
+                    <Select>
+                      <SelectTrigger className="w-full border-slate-200">
+                        <SelectValue placeholder="Todas as Unidades" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as Unidades</SelectItem>
+                        <SelectItem value="central">Hospital Central</SelectItem>
+                        <SelectItem value="sul">Hospital Zona Sul</SelectItem>
+                        <SelectItem value="norte">Hospital Norte</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Date Range Picker (Mocked with single Calendar for aesthetics) */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold text-[#001A72]">Período</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal border-slate-200 text-slate-600"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {date ? format(date, "PPP") : <span>Selecione uma data</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 border-slate-200 shadow-lg">
+                        <Calendar
+                          mode="single"
+                          selected={date}
+                          onSelect={setDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+      </Card>
 
-        {/* Info Column (Card ERP Style) */}
-        <div className="lg:col-span-1">
-          <div className="bg-slate-900 rounded-xl shadow-lg border border-slate-800 p-6 h-full flex flex-col text-slate-300">
-            <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-              <AlertTriangle size={18} className="text-orange-500" /> Diretrizes
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed mb-6">
-              O analisador financeiro irá classificar as transferências e validar as diferenças de valores.
+      {/* 3. KPI Cards Section (Grid 4 col) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Card 1 */}
+        <Card className="bg-[#FFFFFF] rounded-xl shadow-sm border-0 border-l-4 border-[#001A72]">
+          <CardHeader className="pb-2 pt-6">
+            <CardTitle className="text-sm font-bold text-[#001A72] uppercase tracking-wide">
+              Total Saída
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold" style={{ color: '#001A72' }}>R$ 15.000,00</div>
+            <p className="text-sm font-medium text-slate-500 mt-1">Enviado</p>
+          </CardContent>
+        </Card>
+
+        {/* Card 2 */}
+        <Card className="bg-[#FFFFFF] rounded-xl shadow-sm border-0 border-l-4 border-[#00C853]">
+          <CardHeader className="pb-2 pt-6">
+            <CardTitle className="text-sm font-bold text-[#001A72] uppercase tracking-wide">
+              Total Entrada
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold" style={{ color: '#001A72' }}>R$ 14.200,00</div>
+            <p className="text-sm font-medium text-slate-500 mt-1">Recebido</p>
+          </CardContent>
+        </Card>
+
+        {/* Card 3 */}
+        <Card className="bg-[#FFFFFF] rounded-xl shadow-sm border-0 border-l-4 border-[#FF9800]">
+          <CardHeader className="pb-2 pt-6">
+            <CardTitle className="text-sm font-bold text-[#001A72] uppercase tracking-wide">
+              Pendentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold" style={{ color: '#001A72' }}>R$ 800,00</div>
+            <p className="text-sm font-bold mt-1" style={{ color: '#FF9800' }}>
+              - 5.3% do total
             </p>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-4 flex-1">
-              <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-lg">
-                <span className="block text-xs font-bold text-orange-500 uppercase tracking-wider mb-1">Passo 1</span>
-                <p className="text-sm font-medium">Faça o upload do relatório de Saída do sistema de RH base.</p>
-              </div>
-              <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-lg">
-                <span className="block text-xs font-bold text-orange-500 uppercase tracking-wider mb-1">Passo 2</span>
-                <p className="text-sm font-medium">Faça o upload do relatório de Entrada respectivo na mesma fila.</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Card 4 */}
+        <Card className="bg-[#FFFFFF] rounded-xl shadow-sm border-0 border-l-4 border-[#FF4444]">
+          <CardHeader className="pb-2 pt-6">
+            <CardTitle className="text-sm font-bold text-[#001A72] uppercase tracking-wide">
+              Divergência
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold" style={{ color: '#001A72' }}>R$ 350,00</div>
+            <p className="text-sm font-bold mt-1" style={{ color: '#FF4444' }}>
+              ! 2.4% da entrada
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Modern ERP Results Section */}
-      {stats && (
-        <div className="pt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* 4. Charts Section (Grid 2 col) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          <h2 className="text-lg font-bold text-slate-800 mb-4 px-1">Métricas Globais</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {/* Cards Solid Financeiros */}
-            <div className="bg-white p-5 rounded-xl border-l-4 border-l-emerald-500 shadow-sm border-t border-r border-b border-slate-200">
-              <span className="text-slate-500 font-bold uppercase text-[11px] tracking-wider block mb-1">Validadas</span>
-              <span className="text-3xl font-bold text-slate-900">{stats.conformes}</span>
-            </div>
-            <div className="bg-white p-5 rounded-xl border-l-4 border-l-red-500 shadow-sm border-t border-r border-b border-slate-200">
-              <span className="text-slate-500 font-bold uppercase text-[11px] tracking-wider block mb-1">Divergências</span>
-              <span className="text-3xl font-bold text-slate-900">{stats.nao_conformes}</span>
-            </div>
-            <div className="bg-white p-5 rounded-xl border-l-4 border-l-amber-500 shadow-sm border-t border-r border-b border-slate-200">
-              <span className="text-slate-500 font-bold uppercase text-[11px] tracking-wider block mb-1">Não Localizadas</span>
-              <span className="text-3xl font-bold text-slate-900">{stats.nao_encontrados}</span>
-            </div>
-            <div className="bg-white p-5 rounded-xl border-l-4 border-l-indigo-500 shadow-sm border-t border-r border-b border-slate-200">
-              <span className="text-slate-500 font-bold uppercase text-[11px] tracking-wider block mb-1">Total Analisado</span>
-              <span className="text-3xl font-bold text-slate-900">{results.length}</span>
-            </div>
-          </div>
-        </div>
-      )}
+        {/* Left: Donut Chart */}
+        <Card className="bg-[#FFFFFF] rounded-xl shadow-sm border-slate-100 p-2">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold" style={{ color: '#001A72' }}>Status de Recebimento</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px] flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={110}
+                  paddingAngle={5}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ borderRadius: '10px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  itemStyle={{ color: '#001A72', fontWeight: 600 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-      {/* Enhanced ERP Data Table */}
-      {results.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in duration-700">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Registros Analíticos</h3>
-            <span className="bg-slate-100 text-slate-600 border border-slate-200 px-3 py-1 rounded text-xs font-bold">{results.length} linhas</span>
-          </div>
+        {/* Right: Horizontal Bar Chart */}
+        <Card className="bg-[#FFFFFF] rounded-xl shadow-sm border-slate-100 p-2">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold" style={{ color: '#001A72' }}>Top 5 Hospitais com Divergências</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={barData}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 30, bottom: 5 }}
+              >
+                <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
+                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={100} style={{ fill: '#001A72', fontWeight: 500, fontSize: 13 }} />
+                <Tooltip
+                  cursor={{ fill: '#F0F2F6' }}
+                  contentStyle={{ borderRadius: '10px', border: '1px solid #E2E8F0' }}
+                />
+                <Bar dataKey="value" fill="#E87722" radius={[0, 4, 4, 0]} barSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13px] whitespace-nowrap">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold tracking-wide">
-                <tr>
-                  <th className="px-5 py-3">Situação</th>
-                  <th className="px-5 py-3">Emissão</th>
-                  <th className="px-5 py-3">Movimentação</th>
-                  <th className="px-5 py-3 font-mono">Documento</th>
-                  <th className="px-5 py-3">Item Transferido (Base)</th>
-                  <th className="px-5 py-3">Item Recebido (Contra-parte)</th>
-                  <th className="px-5 py-3 text-right">Montante (R$)</th>
-                  <th className="px-5 py-3 text-right">Gap R$</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {results.slice(0, 100).map((r, i) => {
-                  const isSuccess = r.status.includes('✅')
-                  const isWarning = r.status.includes('⚠️')
+      {/* 5. Data Table Section */}
+      <Card className="bg-[#FFFFFF] rounded-xl shadow-sm border-slate-100 overflow-hidden">
+        <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
+          <CardTitle className="text-lg font-bold" style={{ color: '#001A72' }}>Relatório Detalhado</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow className="hover:bg-slate-50 border-slate-200">
+                <TableHead className="font-bold text-[#001A72] py-4">Data</TableHead>
+                <TableHead className="font-bold text-[#001A72] py-4">Unidade Origem</TableHead>
+                <TableHead className="font-bold text-[#001A72] py-4">Unidade Destino</TableHead>
+                <TableHead className="font-bold text-[#001A72] py-4">Produto</TableHead>
+                <TableHead className="font-bold text-[#001A72] py-4 text-right">Valor Saída</TableHead>
+                <TableHead className="font-bold text-[#001A72] py-4 text-right">Diferença Qtd</TableHead>
+                <TableHead className="font-bold text-[#001A72] py-4 text-center">Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tableData.map((row, idx) => (
+                <TableRow key={idx} className="border-slate-100 hover:bg-slate-50/50 transition-colors">
+                  <TableCell className="font-medium text-slate-600 border-r border-slate-50">{row.date}</TableCell>
+                  <TableCell className="font-semibold text-[#001A72]">{row.origem}</TableCell>
+                  <TableCell className="font-semibold text-[#001A72]">{row.destino}</TableCell>
+                  <TableCell className="text-slate-700">{row.produto}</TableCell>
+                  <TableCell className="text-right font-mono font-medium text-slate-600">{row.valor}</TableCell>
+                  <TableCell className="text-right font-mono font-bold">
+                    <span className={row.diferenca < 0 ? 'text-[#FF4444]' : 'text-slate-500'}>
+                      {row.diferenca}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge
+                      className={`font-bold px-3 py-1 shadow-none transition-none shadow-sm ${row.status === 'Conforme'
+                        ? 'bg-[#00C853] hover:bg-[#00C853]/90 text-white'
+                        : row.status === 'Não Conforme'
+                          ? 'bg-[#FF4444] hover:bg-[#FF4444]/90 text-white'
+                          : 'bg-[#FF9800] hover:bg-[#FF9800]/90 text-white'
+                        }`}
+                    >
+                      {row.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-                  return (
-                    <tr key={i} className={`hover:bg-slate-50/80 transition-colors ${!isSuccess ? 'bg-red-50/20' : ''}`}>
-                      <td className="px-5 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold ${isSuccess ? 'bg-emerald-100 text-emerald-700' : isWarning ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                          {isSuccess ? <Check size={14} strokeWidth={3} /> : isWarning ? <span className="font-serif">?</span> : <X size={14} strokeWidth={3} />}
-                          {isSuccess ? 'OK' : isWarning ? 'Falta Referência' : 'Diferença'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-slate-600 font-medium">{r.data}</td>
-                      <td className="px-5 py-3">
-                        <div className="flex flex-col">
-                          <span className="text-slate-800 font-bold truncate max-w-[150px]">{r.origem}</span>
-                          <span className="text-[11px] text-slate-500 uppercase tracking-wider">{r.tipo_div || 'Normal'}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 font-mono text-slate-500 font-medium">{r.doc}</td>
-                      <td className="px-5 py-3 text-slate-700 truncate max-w-[200px]" title={r.prod_saida}>{r.prod_saida}</td>
-                      <td className="px-5 py-3 text-slate-500 font-mono text-[12px] truncate max-w-[200px]" title={r.prod_entrada}>{r.prod_entrada || '---'}</td>
-                      <td className="px-5 py-3 text-right font-mono text-slate-700 font-bold">
-                        {r.val_saida ? r.val_saida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        {r.dif_val !== null ? (
-                          <span className={`font-mono font-bold px-2 py-1 rounded ${Math.abs(r.dif_val) > 10 ? 'bg-red-100 text-red-700' : 'text-slate-400'}`}>
-                            {r.dif_val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        ) : <span className="text-slate-300">-</span>}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {results.length > 100 && (
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-center">
-              <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">
-                Limite de Preview: Mostrando top 100 de {results.length} registros processados
-              </span>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
