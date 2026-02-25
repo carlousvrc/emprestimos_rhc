@@ -467,7 +467,7 @@ export default function ModernDashboard() {
           <div className="w-8 h-8 rounded-lg bg-[#001A72]/10 text-[#001A72] flex items-center justify-center">
             <FileText size={18} strokeWidth={3} />
           </div>
-          Detalhamento Clínico
+          Detalhamento dos Dados
         </div>
         <Button className="bg-white hover:bg-slate-50 text-[#001A72] border border-slate-200 font-bold py-5 px-6 rounded-2xl shadow-sm transition-all flex items-center gap-2 text-sm">
           <Download size={18} />
