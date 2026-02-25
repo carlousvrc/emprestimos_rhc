@@ -1,96 +1,66 @@
 import { login } from '@/utils/supabase/server'
-import { User, Lock } from 'lucide-react'
 
 export default function LoginPage() {
     return (
-        <div className="relative min-h-screen flex items-center justify-center font-sans tracking-wide">
-            {/* Background Image with Overlay */}
-            <div
-                className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
-                style={{
-                    backgroundImage: "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1920&q=80')",
-                }}
-            >
-                <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px]"></div>
-            </div>
+        // Container principal: fundo cinza claro, tela cheia, centraliza tudo perfeitamente
+        <div className="min-h-screen flex items-center justify-center bg-[#F0F2F6] p-4 font-sans">
 
-            {/* Glassmorphism Card */}
-            <div className="relative z-10 w-full max-w-md px-6">
-                <div className="backdrop-blur-xl bg-white/10 rounded-3xl shadow-2xl border border-white/20 p-8 sm:p-10">
+            {/* Card branco do formulário com uma borda superior azul para dar o toque corporativo */}
+            <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border-t-4 border-[#001A72]">
 
-                    {/* Header */}
-                    <div className="flex flex-col items-center justify-center mb-8">
-                        <div className="bg-white/90 p-3 rounded-2xl shadow-lg mb-6">
-                            <img
-                                src="/logo.png"
-                                alt="Logo Hospital Casa"
-                                className="h-[60px] object-contain"
-                            />
-                        </div>
-                        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight text-center">
-                            Bem-vindo
-                        </h1>
-                        <h2 className="text-indigo-100/80 text-base text-center font-medium">
-                            Análise de Transferências RHC
-                        </h2>
-                    </div>
+                {/* Cabeçalho (Idêntico ao seu HTML_Header do Streamlit) */}
+                <div className="flex flex-col items-center justify-center mb-8">
+                    {/* Se a sua logo estiver na pasta public, ela vai aparecer aqui. Ajuste o src se necessário. */}
+                    <img src="/logo.png" alt="Logo Hospitalar" className="h-[75px] mb-4 object-contain" />
 
-                    {/* Form */}
-                    <form className="flex flex-col gap-5 w-full">
-                        {/* Usuário Input */}
-                        <div>
-                            <label className="block text-sm font-medium text-indigo-100 mb-2 ml-1" htmlFor="email">
-                                Usuário
-                            </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-indigo-300">
-                                    <User size={18} strokeWidth={2.5} />
-                                </div>
-                                <input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    placeholder="seu.email"
-                                    required
-                                    className="w-full py-3.5 pl-12 pr-4 bg-white/5 border border-white/20 rounded-xl text-white placeholder-indigo-300/50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white/10 transition-all font-medium"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Senha Input */}
-                        <div>
-                            <label className="block text-sm font-medium text-indigo-100 mb-2 ml-1" htmlFor="password">
-                                Senha
-                            </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-indigo-300">
-                                    <Lock size={18} strokeWidth={2.5} />
-                                </div>
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    required
-                                    className="w-full py-3.5 pl-12 pr-4 bg-white/5 border border-white/20 rounded-xl text-white placeholder-indigo-300/50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white/10 transition-all font-medium"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Login Button */}
-                        <button
-                            formAction={login}
-                            className="mt-4 w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                        >
-                            Entrar no Sistema
-                        </button>
-                    </form>
-
-                    <div className="mt-8 text-center text-indigo-300/50 text-xs">
-                        v2.0 • Sistema Seguro
-                    </div>
+                    <h1 className="text-center text-[#001A72] m-0 text-3xl font-bold leading-tight">
+                        Análise de Transferências
+                    </h1>
+                    <span className="text-center text-[#001A72] text-xl mt-1 font-medium">
+                        Via Empréstimo
+                    </span>
                 </div>
+
+                {/* Formulário integrado à Server Action do Supabase */}
+                <form className="space-y-5">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1" htmlFor="email">
+                            Usuário
+                        </label>
+                        <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#E87722] focus:border-[#E87722] outline-none transition-all bg-gray-50 hover:bg-white"
+                            placeholder="Digite seu usuário (e-mail)"
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1" htmlFor="password">
+                            Senha
+                        </label>
+                        <input
+                            id="password"
+                            name="password"
+                            type="password"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#E87722] focus:border-[#E87722] outline-none transition-all bg-gray-50 hover:bg-white"
+                            placeholder="••••••••"
+                            required
+                        />
+                    </div>
+
+                    {/* Botão de Entrar integrado com o login do servidor */}
+                    <button
+                        formAction={login}
+                        className="w-full bg-[#E87722] hover:bg-[#d16615] text-white font-bold py-3 px-4 rounded-md transition-colors mt-4 shadow-md hover:shadow-lg"
+                    >
+                        Entrar
+                    </button>
+                </form>
+
             </div>
         </div>
-    )
+    );
 }
