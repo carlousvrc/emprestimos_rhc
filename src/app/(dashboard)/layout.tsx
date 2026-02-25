@@ -18,8 +18,6 @@ export default async function DashboardLayout({
     return redirect('/login')
   }
 
-  // Fetch user profile info (name, role, unit)
-  // Assumes a 'profiles' table exists that matches auth.users.id
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
@@ -27,32 +25,44 @@ export default async function DashboardLayout({
     .single()
 
   return (
-    <div className="flex h-screen bg-[#F0F2F6]">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-[#001A72] mb-4">Usuário</h2>
+    <div className="flex min-h-screen bg-white font-sans text-[#31333f]">
+      {/* Streamlit Custom Sidebar */}
+      <aside className="w-[336px] bg-[#F0F2F6] flex-shrink-0 flex flex-col transition-all duration-300">
+        <div className="px-6 py-12 flex-1 flex flex-col">
+          <h2 className="text-xl font-bold text-[#002D62] mb-6 tracking-tight">Usuário Autenticado</h2>
 
-          <div className="space-y-2 text-sm text-gray-700 mb-8">
-            <p><span className="font-semibold">Nome:</span> {profile?.name || user.email}</p>
-            <p><span className="font-semibold">Perfil:</span> {profile?.role || 'Usuário'}</p>
+          <div className="space-y-4 text-[15px] text-[#31333f] mb-8">
+            <div>
+              <span className="font-semibold block mb-0.5">Nome</span>
+              {profile?.name || user.email}
+            </div>
+            <div>
+              <span className="font-semibold block mb-0.5">Perfil</span>
+              {profile?.role || 'Usuário'}
+            </div>
             {profile?.unit && (
-              <p><span className="font-semibold">Unidade:</span> {profile.unit}</p>
+              <div>
+                <span className="font-semibold block mb-0.5">Unidade</span>
+                {profile.unit}
+              </div>
             )}
           </div>
 
-          <form action={signout}>
-            <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">
-              <LogOut size={16} />
-              <span>Sair</span>
-            </button>
-          </form>
+          <div className="mt-auto pt-6 border-t border-[#D3D4D6]">
+            {/* Streamlit Secondary Button Style */}
+            <form action={signout}>
+              <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border border-[#caced1] text-[#31333F] rounded-lg hover:border-[#F37021] hover:text-[#F37021] transition-colors font-semibold">
+                <LogOut size={16} />
+                <span>Sair do Sistema</span>
+              </button>
+            </form>
+          </div>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content analogous to layout="wide" in Streamlit */}
       <main className="flex-1 overflow-y-auto">
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="px-4 md:px-12 lg:px-[6rem] py-12 w-full max-w-[1200px] mx-auto">
           {children}
         </div>
       </main>
