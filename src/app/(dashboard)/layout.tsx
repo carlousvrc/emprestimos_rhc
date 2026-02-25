@@ -1,7 +1,8 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
-import { LogOut, LayoutDashboard, History } from 'lucide-react'
+import { LogOut, LayoutDashboard, History, User, Bell } from 'lucide-react'
 import { signout } from '@/utils/supabase/server'
+import Link from 'next/link'
 
 export default async function DashboardLayout({
   children,
@@ -25,46 +26,66 @@ export default async function DashboardLayout({
     .single()
 
   return (
-    <div className="flex h-screen bg-[#F0F2F6] font-sans text-[#001A72] overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-[#F4F7FB] font-sans text-slate-800 selection:bg-[#E87722]/20 selection:text-[#001A72]">
 
-      {/* Sidebar (Left, Fixed): Dark Blue Background */}
-      <aside className="w-[280px] flex-shrink-0 flex flex-col transition-all duration-300 shadow-xl z-10 text-white" style={{ backgroundColor: '#001A72' }}>
+      {/* Top Navbar (Modern Glassmorphism) */}
+      <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-white/80 border-b border-white/20 shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+        <div className="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
 
-        {/* User Info at the Top */}
-        <div className="p-6 border-b border-white/10 flex flex-col gap-1 mt-4">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-white/50 mb-2">Usuário Logado</h2>
-          <p className="text-lg font-bold truncate" title={profile?.name || user.email}>
-            {profile?.name || user.email?.split('@')[0]}
-          </p>
-          <p className="text-sm font-medium text-white/80">{profile?.role || 'Admin'}</p>
-          <p className="text-sm font-medium text-white/80">Unidade: {profile?.unit || 'Sede'}</p>
-        </div>
+          {/* Brand & Logo */}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center justify-center p-2">
+              <img src="/logo.png" alt="Hospital Casa" className="h-10 object-contain" />
+            </div>
+            <div className="hidden md:flex flex-col">
+              <span className="text-[#001A72] font-black text-lg tracking-tight leading-tight">Painel de Empréstimos</span>
+              <span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Sistema Integrado</span>
+            </div>
 
-        {/* Navigation Links */}
-        <div className="px-4 py-6 flex-1 flex flex-col gap-2">
-          <a href="/" className="flex items-center gap-3 px-4 py-3 bg-[#E87722] text-white rounded-lg font-semibold shadow-md transition-colors">
-            <LayoutDashboard size={20} />
-            <span>Dashboard</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-white/70 hover:bg-white/10 hover:text-white rounded-lg font-semibold transition-colors">
-            <History size={20} />
-            <span>Histórico</span>
-          </a>
-        </div>
+            {/* Main Nav Items */}
+            <nav className="hidden lg:flex items-center gap-2 ml-8 border-l border-slate-200 pl-8">
+              <Link href="/" className="flex items-center gap-2 px-4 py-2 bg-[#001A72]/5 text-[#001A72] rounded-full font-bold transition-all hover:bg-[#001A72]/10">
+                <LayoutDashboard size={18} /> Dashboard
+              </Link>
+              <Link href="#" className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-[#001A72] rounded-full font-bold transition-all hover:bg-slate-100">
+                <History size={18} /> Histórico
+              </Link>
+            </nav>
+          </div>
 
-        {/* Logout Button at bottom */}
-        <div className="p-6 mt-auto">
-          <form action={signout}>
-            <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-white/20 text-white rounded-lg hover:bg-white/10 hover:border-white/30 transition-all font-semibold shadow-sm">
-              <LogOut size={18} />
-              <span>Sair do Sistema</span>
+          {/* User Profile & Actions */}
+          <div className="flex items-center gap-4">
+            <button className="relative p-2 text-slate-400 hover:text-[#001A72] transition-colors rounded-full hover:bg-slate-100 hidden sm:block">
+              <Bell size={20} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#E87722] rounded-full border border-white"></span>
             </button>
-          </form>
-        </div>
-      </aside>
 
-      {/* Main Content Area (Right) */}
-      <main className="flex-1 overflow-y-auto">
+            <div className="w-px h-8 bg-slate-200 hidden sm:block"></div>
+
+            <div className="flex items-center gap-3 pl-2">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-[#001A72] leading-none">{profile?.name || user.email?.split('@')[0]}</p>
+                <p className="text-xs text-slate-500 font-medium mt-1">{profile?.unit || 'Sede'} • {profile?.role || 'Admin'}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#001A72] to-[#2563eb] flex items-center justify-center text-white shadow-md border-2 border-white">
+                <User size={18} />
+              </div>
+            </div>
+
+            <form action={signout} className="ml-2">
+              <button title="Sair do Sistema" className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all flex items-center justify-center">
+                <LogOut size={18} />
+              </button>
+            </form>
+          </div>
+
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 w-full relative">
+        {/* Background Decorative Element */}
+        <div className="absolute top-0 left-0 w-full h-[300px] bg-gradient-to-b from-white/60 to-transparent pointer-events-none -z-10"></div>
         {children}
       </main>
     </div>
