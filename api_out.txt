@@ -1,0 +1,1 @@
+{"success":true,"message":"Sincronização 100% Nativa Finalizada. 7070 Itens Analisados e Importados via IMAP->Supabase->Sheets.","count":7070,"stats":{"conformes":1552,"nao_conformes":4544,"nao_encontrados":3332,"valor_divergente":1210,"qtd_divergente":62,"matches_perfeitos":0,"matches_bons":0,"matches_razoaveis":0}}

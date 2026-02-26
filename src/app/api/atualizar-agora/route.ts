@@ -181,9 +181,10 @@ export async function POST(req: Request) {
             const BATCH_SIZE = 100;
             for (let i = 0; i < supabaseRecords.length; i += BATCH_SIZE) {
                 const chunk = supabaseRecords.slice(i, i + BATCH_SIZE)
-                await supabaseAdmin.from('itens_clinicos').upsert(chunk, {
+                const { error: errItens } = await supabaseAdmin.from('itens_clinicos').upsert(chunk, {
                     onConflict: 'documento, unidade_origem, unidade_destino, produto_saida'
                 })
+                if (errItens) throw new Error(`Falha ao salvar itens_clinicos no Supabase: ${errItens.message}`);
             }
 
             // Insert Consolidado
@@ -196,7 +197,7 @@ export async function POST(req: Request) {
                 if (r.status?.includes('Recebido') || r.status?.includes('Pendente')) sumPendente += Number(r.val_saida || 0);
             })
 
-            await supabaseAdmin.from('analises_consolidadas').insert({
+            const { error: errCons } = await supabaseAdmin.from('analises_consolidadas').insert({
                 itens_analisados: analise.length,
                 itens_conformes: stats.conformes,
                 itens_nao_conformes: stats.nao_conformes,
@@ -209,6 +210,7 @@ export async function POST(req: Request) {
                 total_divergencia: sumDivergente,
                 data_referencia_arquivos: primeiraDataArquivo ? primeiraDataArquivo.toISOString() : new Date().toISOString()
             })
+            if (errCons) throw new Error(`Falha ao salvar analises_consolidadas no Supabase: ${errCons.message}`);
         }
 
         // 5. Update Google Sheets
