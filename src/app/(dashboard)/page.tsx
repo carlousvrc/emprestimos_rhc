@@ -104,27 +104,31 @@ export default function ModernDashboard() {
   const filteredData = useMemo(() => {
     let result = [...rawItens];
 
-    // 1. Filtro de Período (Hardcoded logic similar to Python)
+    // 1. Filtro de Período - usa data_transferencia (data do Excel, como o Python usava)
     const hoje = new Date()
     const mesAtual = hoje.getMonth()
     const anoAtual = hoje.getFullYear()
 
-    if (periodo === "Mês Atual") {
+    if (periodo !== 'Todo o Período') {
       result = result.filter(item => {
-        const d = new Date(item.data_transferencia || item.created_at)
-        return d.getMonth() === mesAtual && d.getFullYear() === anoAtual
+        const raw = item.data_transferencia
+        if (!raw) return false
+        const d = new Date(raw)
+        if (isNaN(d.getTime())) return false
+
+        if (periodo === 'Mês Atual') {
+          return d.getMonth() === mesAtual && d.getFullYear() === anoAtual
+        } else if (periodo === 'Mês Anterior') {
+          const mesAnt = mesAtual === 0 ? 11 : mesAtual - 1
+          const anoAnt = mesAtual === 0 ? anoAtual - 1 : anoAtual
+          return d.getMonth() === mesAnt && d.getFullYear() === anoAnt
+        } else if (periodo === 'Últimos 3 Meses') {
+          const limite = new Date()
+          limite.setMonth(limite.getMonth() - 3)
+          return d >= limite
+        }
+        return true
       })
-    } else if (periodo === "Mês Anterior") {
-      const mesAnt = mesAtual === 0 ? 11 : mesAtual - 1
-      const anoAnt = mesAtual === 0 ? anoAtual - 1 : anoAtual
-      result = result.filter(item => {
-        const d = new Date(item.data_transferencia || item.created_at)
-        return d.getMonth() === mesAnt && d.getFullYear() === anoAnt
-      })
-    } else if (periodo === "Últimos 3 Meses") {
-      const limite = new Date()
-      limite.setMonth(limite.getMonth() - 3)
-      result = result.filter(item => new Date(item.data_transferencia || item.created_at) >= limite)
     }
 
     // 2. Filtro Interativo Status
