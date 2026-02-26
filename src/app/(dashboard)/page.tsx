@@ -81,13 +81,13 @@ export default function ModernDashboard() {
       const res = await fetch('/api/atualizar-agora', { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
-        alert(data.message || 'Sincronização via Python concluída com sucesso.')
+        alert(data.message || 'Sincronização concluída com sucesso.')
       } else {
-        alert('Aviso: ' + (data.error || 'Erro Crítico no Gateway Python'))
+        alert('Aviso: ' + (data.error || 'Erro Crítico no Gateway'))
       }
     } catch (e) {
       console.error(e)
-      alert('Erro ao tentar contatar API Local Node/Python')
+      alert('Erro ao tentar contatar API Local')
     } finally {
       // Reboot front para buscar do SQL Cloud
       await fetchDashboardData()
@@ -275,7 +275,7 @@ export default function ModernDashboard() {
         <div className="relative z-10 flex flex-col items-end gap-4 w-full md:w-auto">
           <Button onClick={handleForceSync} disabled={loading} className="w-full md:w-auto bg-[#E87722] hover:bg-white hover:text-[#E87722] text-white font-black px-8 py-6 rounded-2xl shadow-lg shadow-[#E87722]/30 transition-all active:scale-95 flex items-center gap-2 group">
             <RefreshCw size={20} className={`${loading ? 'animate-spin' : 'group-hover:rotate-180'} transition-transform duration-500`} />
-            {loading ? 'Sincronizando Banco de Dados Supabase (Aguarde)' : 'Sincronizar Emails e Python (Force)'}
+            {loading ? 'Sincronizando Banco de Dados Supabase (Aguarde)' : 'Sincronizar Emails'}
           </Button>
           <div className="flex items-center gap-2 text-white/60 text-xs font-bold bg-black/10 px-4 py-2 rounded-xl backdrop-blur-sm">
             <Info size={14} /> Atualizado {lastUpdate ? `hoje, às ${lastUpdate}` : 'agora'}
