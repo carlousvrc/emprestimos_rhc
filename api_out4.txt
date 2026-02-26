@@ -1,0 +1,1 @@
+{"error":"Falha ao salvar itens_clinicos no Supabase: ON CONFLICT DO UPDATE command cannot affect row a second time"}

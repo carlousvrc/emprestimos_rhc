@@ -177,10 +177,18 @@ export async function POST(req: Request) {
                 process.env.SUPABASE_SERVICE_ROLE_KEY!
             )
 
+            // Deduplicate records to prevent "ON CONFLICT DO UPDATE command cannot affect row a second time"
+            const uniqueRecordsMap = new Map();
+            for (const record of supabaseRecords) {
+                const key = `${record.documento}|${record.unidade_origem}|${record.unidade_destino}|${record.produto_saida}`;
+                uniqueRecordsMap.set(key, record);
+            }
+            const uniqueSupabaseRecords = Array.from(uniqueRecordsMap.values());
+
             // Upsert Itens Clinicos in batches
             const BATCH_SIZE = 100;
-            for (let i = 0; i < supabaseRecords.length; i += BATCH_SIZE) {
-                const chunk = supabaseRecords.slice(i, i + BATCH_SIZE)
+            for (let i = 0; i < uniqueSupabaseRecords.length; i += BATCH_SIZE) {
+                const chunk = uniqueSupabaseRecords.slice(i, i + BATCH_SIZE)
                 const { error: errItens } = await supabaseAdmin.from('itens_clinicos').upsert(chunk, {
                     onConflict: 'documento, unidade_origem, unidade_destino, produto_saida'
                 })

@@ -1,0 +1,1 @@
+{"error":"Falha ao salvar itens_clinicos no Supabase: Could not find the 'data_recebimento' column of 'itens_clinicos' in the schema cache"}
