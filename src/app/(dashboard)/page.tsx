@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table'
 
 export default function ModernDashboard() {
-  const [periodo, setPeriodo] = useState('Mês Atual')
+  const [periodo, setPeriodo] = useState('Todo o Período')
   const [loading, setLoading] = useState(true)
 
   // System State
@@ -59,8 +59,8 @@ export default function ModernDashboard() {
       const { data: itens, error: errItens } = await supabase
         .from('itens_clinicos')
         .select('*')
-        .order('data_transferencia', { ascending: false })
-        .limit(500);
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       if (errItens) throw errItens;
 
@@ -149,21 +149,25 @@ export default function ModernDashboard() {
     let iProc = filteredData.length, iConf = 0, iNConf = 0, iPend = 0;
 
     filteredData.forEach(item => {
-      const vS = Number(item.valor_saida || 0);
-      const vE = Number(item.valor_entrada || 0);
+      // Ensure we treat the values as numbers correctly, they might be numeric directly now
+      const vS = typeof item.valor_saida === 'number' ? item.valor_saida : Number(String(item.valor_saida || 0).replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.'));
+      const vE = typeof item.valor_entrada === 'number' ? item.valor_entrada : Number(String(item.valor_entrada || 0).replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.'));
 
       tSaida += vS;
       tEntrada += vE;
 
+      const statusLower = String(item.status_item || '').toLowerCase()
+
       // Regras idênticas ao Python analise_core.py
-      if (item.status_item === 'pendente' || item.status_item?.includes('não recebido')) {
+      if (statusLower === 'pendente' || statusLower.includes('não recebido')) {
         tPendente += vS;
         iPend++;
-      } else if (item.status_item === 'conforme') {
+      } else if (statusLower === 'conforme') {
         iConf++;
-      } else if (item.status_item?.includes('não conforme') || item.status_item?.includes('divergente')) {
+      } else if (statusLower.includes('não conforme') || statusLower.includes('divergente')) {
         iNConf++;
-        tDivergencia += Math.abs(vS - vE);
+        // Use pre-calculated divergencia if available, else fallback
+        tDivergencia += typeof item.diferenca_financeira === 'number' ? Math.abs(item.diferenca_financeira) : Math.abs(vS - vE);
       }
     });
 
@@ -176,9 +180,9 @@ export default function ModernDashboard() {
       conformes: iConf,
       naoConformes: iNConf,
       itensPendentes: iPend,
-      entradasInferiores: 0, // Mock ou SQL profundo seria necessário se a prop não existe no front
-      divergenciaQuantidade: iNConf, // Aproximação baseada em status
-      tempoMedio: 24, // Hacked visual
+      entradasInferiores: 0,
+      divergenciaQuantidade: iNConf,
+      tempoMedio: 24,
     }
   }, [filteredData])
 
@@ -589,7 +593,7 @@ export default function ModernDashboard() {
                   </TableCell>
                   <TableCell className="py-5 px-8 text-right">
                     {row.status_item === 'conforme' && <span className="inline-flex text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Conforme</span>}
-                    {row.status_item === 'pendente' && <span className="inline-flex text-orange-700 bg-orange-50 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Pendente</span>}
+                    {(row.status_item === 'pendente' || row.status_item?.includes('não recebido')) && <span className="inline-flex text-orange-700 bg-orange-50 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Pendente</span>}
                     {row.status_item?.includes('divergente') && <span className="inline-flex text-red-700 bg-red-50 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Divergente</span>}
                     {row.status_item?.includes('não conforme') && <span className="inline-flex text-red-700 bg-red-50 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Não Conforme</span>}
                   </TableCell>
