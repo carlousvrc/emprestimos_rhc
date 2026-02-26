@@ -33,7 +33,8 @@ export async function fetchExcelAttachments(): Promise<{ filename: string; conte
             const dateStr = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
             const searchCriteria: SearchObject = {
                 since: dateStr,
-                from: process.env.GMAIL_SENDER || 'pedro.gomes@hospitaldecancer.com.br'
+                from: process.env.GMAIL_SENDER || 'pedro.gomes@hospitaldecancer.com.br',
+                seen: false
             };
 
             const subjectFilter = process.env.GMAIL_SUBJECT || '';
@@ -76,6 +77,8 @@ export async function fetchExcelAttachments(): Promise<{ filename: string; conte
                             content: att.content
                         });
                     }
+                    // Mark as seen so we don't process it again on the next sync
+                    await client.messageFlagsAdd({ uid }, ['\\Seen'], { uid: true });
                     // Stop searching once we found a valid email with Excel attachments (same logic as the Python script)
                     break;
                 }

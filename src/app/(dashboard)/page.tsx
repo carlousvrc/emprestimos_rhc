@@ -338,63 +338,57 @@ export default function ModernDashboard() {
       </div>
 
       {/* 3. Financial KPIs (Modern Glass Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
         {/* Card 1: Total Saída */}
-        <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
-            <TrendingUp size={24} strokeWidth={2.5} />
+        <div className="bg-white rounded-[1.5rem] p-4 sm:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-2">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <TrendingUp size={20} strokeWidth={2.5} />
           </div>
-          <div>
-            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">Total Enviado</p>
-            <h3 className="text-3xl lg:text-4xl font-black text-[#001A72] tracking-tight">{formatShorthand(metrics.totalSaida)}</h3>
-          </div>
-          <div className="mt-auto pt-4 border-t border-slate-50">
-            <span className="text-xs text-slate-500 font-bold bg-slate-50 px-3 py-1 rounded-lg">R$ {formatCurrency(metrics.totalSaida)} exatos</span>
+          <div className="mt-2">
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Enviado</p>
+            <h3 className="text-xl lg:text-2xl font-black text-[#001A72] tracking-tight truncate" title={formatCurrency(metrics.totalSaida)}>{formatCurrency(metrics.totalSaida)}</h3>
           </div>
         </div>
 
         {/* Card 2: Entrada */}
-        <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
-            <Inbox size={24} strokeWidth={2.5} className="scale-y-[-1]" />
+        <div className="bg-white rounded-[1.5rem] p-4 sm:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-2">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <Inbox size={20} strokeWidth={2.5} className="scale-y-[-1]" />
           </div>
-          <div>
-            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">Total Recebido</p>
-            <h3 className="text-3xl lg:text-4xl font-black text-[#001A72] tracking-tight">{formatShorthand(metrics.totalEntrada)}</h3>
-          </div>
-          <div className="mt-auto pt-4 border-t border-slate-50">
-            <span className="text-xs text-slate-500 font-bold bg-slate-50 px-3 py-1 rounded-lg">{formatCurrency(metrics.totalEntrada)} exatos</span>
+          <div className="mt-2">
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Recebido</p>
+            <h3 className="text-xl lg:text-2xl font-black text-[#001A72] tracking-tight truncate" title={formatCurrency(metrics.totalEntrada)}>{formatCurrency(metrics.totalEntrada)}</h3>
           </div>
         </div>
 
         {/* Card 3: Pendentes */}
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100/30 rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-orange-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-4 relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-orange-200/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-          <div className="w-12 h-12 rounded-2xl bg-[#E87722] text-white flex items-center justify-center mb-2 relative z-10 shadow-lg shadow-orange-500/20">
-            <Clock size={24} strokeWidth={2.5} />
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100/30 rounded-[1.5rem] p-4 sm:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-orange-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-2 relative overflow-hidden">
+          <div className="absolute right-0 top-0 w-24 h-24 bg-orange-200/50 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="w-10 h-10 rounded-xl bg-[#E87722] text-white flex items-center justify-center relative z-10 shadow-md shadow-orange-500/20">
+            <Clock size={20} strokeWidth={2.5} />
           </div>
-          <div className="relative z-10">
-            <p className="text-orange-900/60 text-xs font-black uppercase tracking-widest mb-1">Valores Pendentes</p>
-            <h3 className="text-3xl lg:text-4xl font-black text-[#85400d] tracking-tight">{formatShorthand(metrics.pendentes)}</h3>
+          <div className="relative z-10 mt-2 flex-1">
+            <p className="text-orange-900/60 text-[10px] font-black uppercase tracking-widest mb-1">Valores Pendentes</p>
+            <h3 className="text-xl lg:text-2xl font-black text-[#85400d] tracking-tight truncate" title={formatCurrency(metrics.pendentes)}>{formatCurrency(metrics.pendentes)}</h3>
           </div>
-          <div className="mt-auto pt-4 border-t border-orange-200/50 relative z-10">
-            <span className="text-xs text-[#E87722] font-black tracking-wide">— {metrics.totalSaida > 0 ? ((metrics.pendentes / metrics.totalSaida) * 100).toFixed(1) : 0}% do Total</span>
+          <div className="mt-1 pt-2 border-t border-orange-200/50 relative z-10">
+            <span className="text-[10px] text-[#E87722] font-black tracking-wide">— {metrics.totalSaida > 0 ? ((metrics.pendentes / metrics.totalSaida) * 100).toFixed(1) : 0}% do Total</span>
           </div>
         </div>
 
         {/* Card 4: Divergência */}
-        <div className="bg-gradient-to-br from-red-50 to-red-100/30 rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-red-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-4 relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-red-200/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-          <div className="w-12 h-12 rounded-2xl bg-red-500 text-white flex items-center justify-center mb-2 relative z-10 shadow-lg shadow-red-500/20">
-            <AlertCircle size={24} strokeWidth={2.5} />
+        <div className="bg-gradient-to-br from-red-50 to-red-100/30 rounded-[1.5rem] p-4 sm:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-red-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-2 relative overflow-hidden">
+          <div className="absolute right-0 top-0 w-24 h-24 bg-red-200/50 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center relative z-10 shadow-md shadow-red-500/20">
+            <AlertCircle size={20} strokeWidth={2.5} />
           </div>
-          <div className="relative z-10">
-            <p className="text-red-900/60 text-xs font-black uppercase tracking-widest mb-1">Divergências</p>
-            <h3 className="text-3xl lg:text-4xl font-black text-red-950 tracking-tight">{formatShorthand(metrics.divergencias)}</h3>
+          <div className="relative z-10 mt-2 flex-1">
+            <p className="text-red-900/60 text-[10px] font-black uppercase tracking-widest mb-1">Divergências</p>
+            <h3 className="text-xl lg:text-2xl font-black text-red-950 tracking-tight truncate" title={formatCurrency(metrics.divergencias)}>{formatCurrency(metrics.divergencias)}</h3>
           </div>
-          <div className="mt-auto pt-4 border-t border-red-200/50 relative z-10">
-            <span className="text-xs text-red-600 font-black tracking-wide">! {metrics.totalEntrada > 0 ? ((metrics.divergencias / metrics.totalEntrada) * 100).toFixed(1) : 0}% da Entrada</span>
+          <div className="mt-1 pt-2 border-t border-red-200/50 relative z-10">
+            <span className="text-[10px] text-red-600 font-black tracking-wide">! {metrics.totalEntrada > 0 ? ((metrics.divergencias / metrics.totalEntrada) * 100).toFixed(1) : 0}% da Entrada</span>
           </div>
         </div>
 
