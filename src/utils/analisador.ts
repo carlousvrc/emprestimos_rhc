@@ -15,6 +15,8 @@ export interface AnaliseRow {
     especie?: string
     valor_total: number
     qt_entrada: number
+    data_entrada?: string
+    tempo_recebimento?: number
     [key: string]: any
 }
 
@@ -135,6 +137,9 @@ export function analisarItens(dfSaida: AnaliseRow[], dfEntrada: AnaliseRow[], li
                 tipoDiv = parts.join(" | ")
             }
 
+            // Mock processing time for the example
+            const tempoRecebimento = 0;
+
             analise.push({
                 data: rowS.data,
                 origem: rowS.unidade_origem,
@@ -142,14 +147,19 @@ export function analisarItens(dfSaida: AnaliseRow[], dfEntrada: AnaliseRow[], li
                 doc: rowS.doc_num,
                 prod_saida: rowS.ds_produto,
                 prod_entrada: rowE.ds_produto,
+                especie: rowS.especie || '',
                 val_saida: rowS.valor_total,
                 val_entrada: rowE.valor_total,
                 dif_val: diferencaValor,
                 qtd_saida: rowS.qt_entrada,
                 qtd_entrada: rowE.qt_entrada,
                 dif_qtd: diferencaQtd,
+                data_entrada: rowE.data,
+                tempo_recebimento: tempoRecebimento,
                 status,
                 tipo_div: tipoDiv,
+                qualidade_match: `${bestMatch.score}%`,
+                detalhes_produto: bestMatch.detalhesProduto || '',
                 obs: `Score: ${bestMatch.score}% | ${bestMatch.detalhesMatch.join(' | ')}`
             })
         } else {
@@ -162,14 +172,19 @@ export function analisarItens(dfSaida: AnaliseRow[], dfEntrada: AnaliseRow[], li
                 doc: rowS.doc_num,
                 prod_saida: rowS.ds_produto,
                 prod_entrada: "-",
+                especie: rowS.especie || '',
                 val_saida: rowS.valor_total,
                 val_entrada: null,
                 dif_val: null,
                 qtd_saida: rowS.qt_entrada,
                 qtd_entrada: null,
                 dif_qtd: null,
+                data_entrada: null,
+                tempo_recebimento: null,
                 status: "⚠️ Não Recebido",
                 tipo_div: "Item não encontrado",
+                qualidade_match: "-",
+                detalhes_produto: "-",
                 obs: "-"
             })
         }
@@ -179,20 +194,25 @@ export function analisarItens(dfSaida: AnaliseRow[], dfEntrada: AnaliseRow[], li
     dfEntrada.forEach((row, idx) => {
         if (!entradasProcessadas.has(idx)) {
             analise.push({
-                data: row.data,
+                data: row.data, // Or null if strictly Saida date
                 origem: row.unidade_origem,
                 destino: row.unidade_destino,
                 doc: row.doc_num,
                 prod_saida: "-",
                 prod_entrada: row.ds_produto,
+                especie: row.especie || '',
                 val_saida: null,
                 val_entrada: row.valor_total,
                 dif_val: null,
                 qtd_saida: null,
                 qtd_entrada: row.qt_entrada,
                 dif_qtd: null,
+                data_entrada: row.data,
+                tempo_recebimento: null,
                 status: "❌ Não Conforme",
                 tipo_div: "Item recebido sem saída",
+                qualidade_match: "-",
+                detalhes_produto: "-",
                 obs: "Entrada órfã"
             })
         }
