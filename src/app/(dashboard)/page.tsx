@@ -148,30 +148,38 @@ export default function ModernDashboard() {
   }, [rawItens, periodo, statusFilter, unidadeFilter])
 
   // --- RECALCULANDO KPIS ---
+  // Mirrors Python analise_3.0.py lines 1158-1161 exactly:
+  //   total_saida_periodo   = df_filtered['Valor Saída (R$)'].sum()
+  //   total_entrada_periodo = df_filtered[df_filtered['Valor Saída (R$)'].notna()]['Valor Entrada (R$)'].sum()
+  //   valor_pendente        = df_filtered[status.contains('Não Recebido')]['Valor Saída (R$)'].sum()
+  //   valor_divergente_nc   = df_filtered[status.contains('Não Conforme')]['Diferença (R$)'].abs().sum()
   const metrics = useMemo(() => {
     let tSaida = 0, tEntrada = 0, tPendente = 0, tDivergencia = 0;
     let iProc = filteredData.length, iConf = 0, iNConf = 0, iPend = 0;
 
     filteredData.forEach(item => {
-      // Ensure we treat the values as numbers correctly, they might be numeric directly now
-      const vS = typeof item.valor_saida === 'number' ? item.valor_saida : Number(String(item.valor_saida || 0).replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.'));
-      const vE = typeof item.valor_entrada === 'number' ? item.valor_entrada : Number(String(item.valor_entrada || 0).replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.'));
-
-      tSaida += vS;
-      tEntrada += vE;
-
+      const vS = item.valor_saida != null ? Number(item.valor_saida) : null;
+      const vE = item.valor_entrada != null ? Number(item.valor_entrada) : null;
       const statusLower = String(item.status_item || '').toLowerCase()
+      const hasValorSaida = vS !== null && !isNaN(vS)
 
-      // Regras idênticas ao Python analise_core.py
-      if (statusLower === 'pendente' || statusLower.includes('não recebido')) {
-        tPendente += vS;
+      // Total Saída: all rows (mirrors Python: df['Valor Saída (R$)'].sum())
+      if (hasValorSaida) tSaida += vS!;
+
+      // Total Entrada: ONLY rows that also have Valor Saída
+      // mirrors Python: df[df['Valor Saída (R$)'].notna()]['Valor Entrada (R$)'].sum()
+      if (hasValorSaida && vE !== null && !isNaN(vE)) tEntrada += vE;
+
+      if (statusLower.includes('não recebido')) {
+        if (hasValorSaida) tPendente += vS!;
         iPend++;
       } else if (statusLower === 'conforme') {
         iConf++;
-      } else if (statusLower.includes('não conforme') || statusLower.includes('divergente')) {
+      } else if (statusLower.includes('não conforme')) {
         iNConf++;
-        // Use pre-calculated divergencia if available, else fallback
-        tDivergencia += typeof item.diferenca_financeira === 'number' ? Math.abs(item.diferenca_financeira) : Math.abs(vS - vE);
+        // mirrors Python: df[status.contains('Não Conforme')]['Diferença (R$)'].abs().sum()
+        const dif = typeof item.diferenca_financeira === 'number' ? item.diferenca_financeira : 0;
+        tDivergencia += Math.abs(dif);
       }
     });
 

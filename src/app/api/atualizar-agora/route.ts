@@ -9,15 +9,21 @@ export async function POST(req: Request) {
     try {
         console.log("=== Iniciando Sincronização Nativa Node.js ===")
 
+        // Check for force flag (allows reprocessing already-read emails)
+        const url = new URL(req.url)
+        const force = url.searchParams.get('force') === 'true'
+
         // 1. Fetch Attachments via IMAP
         let attachments: { filename: string, content: Buffer }[] = [];
         try {
             console.log(">> Etapa 1: Baixando planilhas de e-mails via IMAP...")
-            attachments = await fetchExcelAttachments();
+            attachments = await fetchExcelAttachments(force);
             if (attachments.length === 0) {
                 return NextResponse.json({
                     success: true,
-                    message: "Nenhum novo email com planilhas para processar neste momento.",
+                    message: force
+                        ? "Nenhum arquivo Excel encontrado nos últimos 45 dias (mesmo no modo forçado)."
+                        : "Nenhum novo email com planilhas para processar. Use ?force=true para forçar reprocessamento.",
                     count: 0
                 })
             }

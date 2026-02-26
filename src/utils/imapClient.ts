@@ -1,7 +1,7 @@
 import { ImapFlow, SearchObject } from 'imapflow';
 import { simpleParser, ParsedMail, Attachment } from 'mailparser';
 
-export async function fetchExcelAttachments(): Promise<{ filename: string; content: Buffer }[]> {
+export async function fetchExcelAttachments(force = false): Promise<{ filename: string; content: Buffer }[]> {
     const user = process.env.GMAIL_USER || 'gestao_mxm@grupohospitalcasa.com.br';
     // Use the App Password generated for the Google Account
     const pass = process.env.GMAIL_APP_PASSWORD || '';
@@ -34,8 +34,12 @@ export async function fetchExcelAttachments(): Promise<{ filename: string; conte
             const searchCriteria: SearchObject = {
                 since: dateStr,
                 from: process.env.GMAIL_SENDER || 'pedro.gomes@hospitaldecancer.com.br',
-                seen: false
             };
+
+            // Only filter for unseen if not forcing a resync
+            if (!force) {
+                searchCriteria.seen = false;
+            }
 
             const subjectFilter = process.env.GMAIL_SUBJECT || '';
             if (subjectFilter) {
