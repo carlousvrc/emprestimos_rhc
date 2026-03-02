@@ -55,21 +55,33 @@ export default function ModernDashboard() {
         setLastUpdate(new Date(analises[0].created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
       }
 
-      // 2. Busca TODOS os itens clínicos — filtro de período é feito client-side
-      //    igual ao Python: df[Data_Obj.dt.month == mes_ant & Data_Obj.dt.year == ano_ant]
-      //    Não filtramos no banco pois data_transferencia pode ter sido salva como
-      //    data do sync e não a data real do Excel.
-      const { data: itens, error: errItens } = await supabase
-        .from('itens_clinicos')
-        .select('*')
-        .order('data_transferencia', { ascending: false })
-        .limit(10000);
+      // 2. Busca TODOS os itens clínicos via paginação — sem limite de registros
+      //    Filtro de período é feito client-side por mês/ano, igual ao Python.
+      const PAGE_SIZE = 2000;
+      let allItens: any[] = [];
+      let from = 0;
+      let keepFetching = true;
 
-      if (errItens) throw errItens;
+      while (keepFetching) {
+        const { data: page, error: errPage } = await supabase
+          .from('itens_clinicos')
+          .select('*')
+          .order('data_transferencia', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
 
-      if (itens) {
-        setRawItens(itens)
+        if (errPage) throw errPage;
+
+        if (page && page.length > 0) {
+          allItens = [...allItens, ...page];
+          from += PAGE_SIZE;
+          // Se retornou menos que PAGE_SIZE, acabou
+          if (page.length < PAGE_SIZE) keepFetching = false;
+        } else {
+          keepFetching = false;
+        }
       }
+
+      setRawItens(allItens);
 
     } catch (error) {
       console.error("Erro pesquisando banco Supabase:", error);
@@ -153,6 +165,17 @@ export default function ModernDashboard() {
 
     return result;
   }, [rawItens, periodo, statusFilter, unidadeFilter])
+
+  // Período apurado — igual ao Python: min/max da coluna Data dos dados filtrados
+  const periodoApurado = useMemo(() => {
+    const datas = filteredData
+      .map(i => i.data_transferencia ? new Date(i.data_transferencia) : null)
+      .filter((d): d is Date => d !== null && !isNaN(d.getTime()))
+    if (datas.length === 0) return null
+    const min = new Date(Math.min(...datas.map(d => d.getTime())))
+    const max = new Date(Math.max(...datas.map(d => d.getTime())))
+    return `${min.toLocaleDateString('pt-BR')} até ${max.toLocaleDateString('pt-BR')}`
+  }, [filteredData])
 
   // --- RECALCULANDO KPIS ---
   // Mirrors Python analise_3.0.py lines 1158-1161 exactly:
@@ -293,6 +316,12 @@ export default function ModernDashboard() {
           <p className="text-white/70 text-sm md:text-base font-medium max-w-xl mt-2 leading-relaxed">
             Mapeamento Interativo com Filtros. Analisando <strong className="text-white bg-white/20 px-2 py-0.5 rounded-md">{filteredData.length} registros</strong> de transferências entre unidades.
           </p>
+          {periodoApurado && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-white/80 text-xs font-bold mt-2 w-fit">
+              <CalendarIcon size={13} className="text-[#E87722]" />
+              Período Apurado: <span className="text-white">{periodoApurado}</span>
+            </div>
+          )}
         </div>
 
         <div className="relative z-10 flex flex-col items-end gap-4 w-full md:w-auto">
