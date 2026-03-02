@@ -81,19 +81,22 @@ export default function ModernDashboard() {
       }
 
       // 2. Busca itens clínicos já filtrados por data diretamente no banco
-      let query = supabase
+      const range = getPeriodRange(periodo)
+
+      let baseQuery = supabase
         .from('itens_clinicos')
         .select('*')
-        .order('data_transferencia', { ascending: false })
-        .limit(5000);
 
-      const range = getPeriodRange(periodo)
       if (range) {
-        query = query.gte('data_transferencia', range.inicio)
-        if (range.fim) query = query.lte('data_transferencia', range.fim)
+        baseQuery = baseQuery.gte('data_transferencia', range.inicio)
+        if (range.fim) {
+          baseQuery = baseQuery.lte('data_transferencia', range.fim)
+        }
       }
 
-      const { data: itens, error: errItens } = await query;
+      const { data: itens, error: errItens } = await baseQuery
+        .order('data_transferencia', { ascending: false })
+        .limit(5000);
 
       if (errItens) throw errItens;
 
