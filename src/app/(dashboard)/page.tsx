@@ -41,6 +41,31 @@ export default function ModernDashboard() {
     return `R$ ${val}`
   }
 
+  // Calcula o intervalo de datas para o período selecionado
+  const getPeriodRange = (p: string) => {
+    const hoje = new Date()
+    const mesAtual = hoje.getMonth()
+    const anoAtual = hoje.getFullYear()
+
+    if (p === 'Mês Atual') {
+      const inicio = new Date(anoAtual, mesAtual, 1)
+      const fim = new Date(anoAtual, mesAtual + 1, 0, 23, 59, 59, 999)
+      return { inicio: inicio.toISOString(), fim: fim.toISOString() }
+    } else if (p === 'Mês Anterior') {
+      const mesAnt = mesAtual === 0 ? 11 : mesAtual - 1
+      const anoAnt = mesAtual === 0 ? anoAtual - 1 : anoAtual
+      const inicio = new Date(anoAnt, mesAnt, 1)
+      const fim = new Date(anoAnt, mesAnt + 1, 0, 23, 59, 59, 999)
+      return { inicio: inicio.toISOString(), fim: fim.toISOString() }
+    } else if (p === 'Últimos 3 Meses') {
+      const inicio = new Date()
+      inicio.setMonth(inicio.getMonth() - 3)
+      inicio.setHours(0, 0, 0, 0)
+      return { inicio: inicio.toISOString(), fim: null }
+    }
+    return null // Todo o Período
+  }
+
   const fetchDashboardData = async () => {
     setLoading(true)
     try {
@@ -55,12 +80,20 @@ export default function ModernDashboard() {
         setLastUpdate(new Date(analises[0].created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
       }
 
-      // 2. Busca linhas de detalhamento clínico bruto (Até 500 para visualização de filtros)
-      const { data: itens, error: errItens } = await supabase
+      // 2. Busca itens clínicos já filtrados por data diretamente no banco
+      let query = supabase
         .from('itens_clinicos')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .order('data_transferencia', { ascending: false })
+        .limit(5000);
+
+      const range = getPeriodRange(periodo)
+      if (range) {
+        query = query.gte('data_transferencia', range.inicio)
+        if (range.fim) query = query.lte('data_transferencia', range.fim)
+      }
+
+      const { data: itens, error: errItens } = await query;
 
       if (errItens) throw errItens;
 
@@ -94,49 +127,24 @@ export default function ModernDashboard() {
     }
   }
 
-  // Hook inicial de Load
+  // Rebusca do banco sempre que o período mudar
   useEffect(() => {
     fetchDashboardData()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodo])
 
 
   // --- COMPUTED STATES (Filtros Reativos tipo Streamlit) ---
+  // Período já foi aplicado na query do Supabase — aqui apenas os filtros de Status e Unidade
   const filteredData = useMemo(() => {
     let result = [...rawItens];
 
-    // 1. Filtro de Período - usa data_transferencia (data do Excel, como o Python usava)
-    const hoje = new Date()
-    const mesAtual = hoje.getMonth()
-    const anoAtual = hoje.getFullYear()
-
-    if (periodo !== 'Todo o Período') {
-      result = result.filter(item => {
-        const raw = item.data_transferencia
-        if (!raw) return false
-        const d = new Date(raw)
-        if (isNaN(d.getTime())) return false
-
-        if (periodo === 'Mês Atual') {
-          return d.getMonth() === mesAtual && d.getFullYear() === anoAtual
-        } else if (periodo === 'Mês Anterior') {
-          const mesAnt = mesAtual === 0 ? 11 : mesAtual - 1
-          const anoAnt = mesAtual === 0 ? anoAtual - 1 : anoAtual
-          return d.getMonth() === mesAnt && d.getFullYear() === anoAnt
-        } else if (periodo === 'Últimos 3 Meses') {
-          const limite = new Date()
-          limite.setMonth(limite.getMonth() - 3)
-          return d >= limite
-        }
-        return true
-      })
-    }
-
-    // 2. Filtro Interativo Status
+    // 1. Filtro Interativo Status
     if (statusFilter.length > 0) {
       result = result.filter(item => statusFilter.includes(item.status_item || 'Desconhecido'))
     }
 
-    // 3. Filtro Interativo de Unidade (Origem OU Destino)
+    // 2. Filtro Interativo de Unidade (Origem OU Destino)
     if (unidadeFilter.length > 0) {
       result = result.filter(item =>
         unidadeFilter.includes(item.unidade_origem) ||
@@ -145,7 +153,7 @@ export default function ModernDashboard() {
     }
 
     return result;
-  }, [rawItens, periodo, statusFilter, unidadeFilter])
+  }, [rawItens, statusFilter, unidadeFilter])
 
   // --- RECALCULANDO KPIS ---
   // Mirrors Python analise_3.0.py lines 1158-1161 exactly:
