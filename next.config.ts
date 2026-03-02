@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: [
+    'imapflow',
+    'mailparser',
+    'googleapis',
+    'string-similarity',
+    'node-domexception',
+  ],
 };
 
 export default nextConfig;
