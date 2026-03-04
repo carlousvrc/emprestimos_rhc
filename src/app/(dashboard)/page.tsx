@@ -38,6 +38,10 @@ interface ItemClinico {
   status_item: string
   created_at?: string
   tipo_movimentacao?: 'interno' | 'externo'
+  qtd_saida?: number
+  qtd_entrada?: number
+  diferenca_quantidade?: number
+  tempo_recebimento?: number
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -57,7 +61,7 @@ const parseLocalDate = (val: string | null | undefined): Date | null => {
 
 const formatDate = (val: string | null | undefined): string => {
   const d = parseLocalDate(val)
-  return d ? d.toLocaleDateString('pt-BR') : ''
+  return d ? d.toLocaleDateString('pt-BR') : '—'
 }
 
 const fetchAllItens = async (): Promise<{ itens: ItemClinico[]; lastUpdate: string }> => {
@@ -181,15 +185,25 @@ function applyFilters(
 function computeMetrics(filteredData: ItemClinico[]) {
   let tSaida = 0, tEntrada = 0, tPendente = 0, tDivergencia = 0
   let iConf = 0, iNConf = 0, iPend = 0
+  let entradasInf = 0, somaTempos = 0, countTempos = 0, divQtd = 0
 
   filteredData.forEach(item => {
     const vS = item.valor_saida != null ? Number(item.valor_saida) : null
     const vE = item.valor_entrada != null ? Number(item.valor_entrada) : null
+    const qs = Number(item.qtd_saida || 0)
+    const qe = Number(item.qtd_entrada || 0)
+    const tr = Number(item.tempo_recebimento || 0)
     const statusLower = String(item.status_item || '').toLowerCase()
     const hasValorSaida = vS !== null && !isNaN(vS)
 
     if (hasValorSaida) tSaida += vS!
     if (hasValorSaida && vE !== null && !isNaN(vE)) tEntrada += vE
+
+    // Recebimento inferior: quantidade recebida menor que enviada
+    if (qe > 0 && qe < qs) entradasInf++
+
+    // Tempo médio real de recebimento (em horas)
+    if (tr > 0) { somaTempos += tr; countTempos++ }
 
     if (statusLower.includes('não recebido')) {
       if (hasValorSaida) tPendente += vS!
@@ -200,6 +214,7 @@ function computeMetrics(filteredData: ItemClinico[]) {
       iNConf++
       const dif = typeof item.diferenca_financeira === 'number' ? item.diferenca_financeira : 0
       tDivergencia += Math.abs(dif)
+      divQtd += Math.abs(Number(item.diferenca_quantidade || 0))
     }
   })
 
@@ -212,9 +227,9 @@ function computeMetrics(filteredData: ItemClinico[]) {
     conformes: iConf,
     naoConformes: iNConf,
     itensPendentes: iPend,
-    entradasInferiores: 0,
-    divergenciaQuantidade: iNConf,
-    tempoMedio: 24,
+    entradasInferiores: entradasInf,
+    divergenciaQuantidade: divQtd,
+    tempoMedio: countTempos > 0 ? Math.round(somaTempos / countTempos) : 0,
   }
 }
 
@@ -294,8 +309,13 @@ function DashboardInner() {
       .map(i => parseLocalDate(i.data_transferencia))
       .filter((d): d is Date => d !== null)
     if (datas.length === 0) return null
-    const min = new Date(Math.min(...datas.map(d => d.getTime())))
-    const max = new Date(Math.max(...datas.map(d => d.getTime())))
+    // Usar reduce em vez de spread para evitar stack overflow com milhares de itens
+    const minTs = datas.reduce((acc, d) => Math.min(acc, d.getTime()), Infinity)
+    const maxTs = datas.reduce((acc, d) => Math.max(acc, d.getTime()), -Infinity)
+    const min = new Date(minTs)
+    const max = new Date(maxTs)
+    // Exibir data única quando todos os registros são do mesmo dia
+    if (minTs === maxTs) return min.toLocaleDateString('pt-BR')
     return `${min.toLocaleDateString('pt-BR')} até ${max.toLocaleDateString('pt-BR')}`
   }, [filteredData])
 
@@ -343,12 +363,19 @@ function DashboardInner() {
     [filteredData]
   )
 
+  const hasActiveFilters =
+    statusFilter.length > 0 ||
+    unidadeFilter.length > 0 ||
+    tipoFilter !== 'Todos' ||
+    periodo !== 'Todo o Período'
+
   const setPage = (p: number) => setFilters({ page: p })
   const setPageSize = (s: number) => setFilters({ pageSize: s, page: 1 })
   const setPeriodo = (p: string) => setFilters({ periodo: p, page: 1 })
   const setStatusFilter = (s: string[]) => setFilters({ status: s, page: 1 })
   const setUnidadeFilter = (u: string[]) => setFilters({ unidade: u, page: 1 })
   const setTipoFilter = (t: string) => setFilters({ tipo: t, page: 1 })
+  const clearAllFilters = () => setFilters({ status: [], unidade: [], tipo: 'Todos', periodo: 'Todo o Período', page: 1 })
 
   // ── Export ──
   const exportToExcel = () => {
@@ -522,6 +549,14 @@ function DashboardInner() {
               </button>
             ))}
           </div>
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="px-4 py-2 rounded-xl text-xs font-black text-red-500 hover:bg-red-50 border border-red-200 transition-all duration-200 whitespace-nowrap"
+            >
+              ✕ Limpar Filtros
+            </button>
+          )}
         </div>
       </div>
 
@@ -530,8 +565,8 @@ function DashboardInner() {
         <div className="flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-6 py-4 text-amber-800 font-bold text-sm -mt-4 md:-mt-8 relative z-20 mx-4">
           <AlertCircle size={18} className="text-amber-500 shrink-0" />
           <span>
-            <strong>{externosCount}</strong> movimentação{externosCount !== 1 ? 'ões' : ''} externa{externosCount !== 1 ? 's' : ''} identificada{externosCount !== 1 ? 's' : ''} —
-            material{externosCount !== 1 ? 'is' : ''} de outros hospitais que precisam ser devolvidos.
+            <strong>{externosCount}</strong> {externosCount === 1 ? 'movimentação externa identificada' : 'movimentações externas identificadas'} —{' '}
+            {externosCount === 1 ? 'material' : 'materiais'} de outros hospitais que precisam ser devolvidos.
           </span>
         </div>
       )}
@@ -609,11 +644,11 @@ function DashboardInner() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col justify-center relative overflow-hidden">
-          <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-2">Itens Desse Filtro</p>
+          <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-2">Registros no Filtro</p>
           <h4 className="text-6xl font-black text-[#001A72] tracking-tighter truncate">
             {metrics.itensProcessados.toLocaleString('pt-BR')}
           </h4>
-          <p className="text-sm font-bold text-slate-500 mt-2">Registros em exibição.</p>
+          <p className="text-sm font-bold text-slate-500 mt-2">registros com os filtros atuais</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -622,11 +657,11 @@ function DashboardInner() {
             <p className="text-4xl font-black text-emerald-700">{metrics.conformes.toLocaleString('pt-BR')}</p>
           </div>
           <div className="bg-[#fef2f2] p-6 rounded-3xl border border-red-100 flex flex-col justify-center items-center text-center">
-            <p className="text-red-500/70 text-[10px] font-black uppercase tracking-widest mb-2">Divergente</p>
+            <p className="text-red-500/70 text-[10px] font-black uppercase tracking-widest mb-2">Divergentes</p>
             <p className="text-4xl font-black text-red-600">{metrics.naoConformes.toLocaleString('pt-BR')}</p>
           </div>
           <div className="bg-[#fff7ed] p-6 rounded-3xl border border-orange-100 flex flex-col justify-center items-center text-center col-span-2">
-            <p className="text-orange-900/60 text-xs font-black uppercase tracking-widest">Pendentes (Sem Entrada)</p>
+            <p className="text-orange-900/60 text-xs font-black uppercase tracking-widest">Não Recebidos</p>
             <p className="text-3xl font-black text-[#85400d]">{metrics.itensPendentes.toLocaleString('pt-BR')}</p>
           </div>
         </div>
@@ -634,15 +669,15 @@ function DashboardInner() {
         <div className="bg-[#001A72] text-white p-8 rounded-[2rem] shadow-xl shadow-[#001A72]/20 flex flex-col justify-between relative overflow-hidden">
           <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="flex items-center justify-between border-b border-white/10 pb-4 relative z-10">
-            <span className="text-xs font-bold text-white/50 uppercase tracking-widest">Entradas Inferiores</span>
+            <span className="text-xs font-bold text-white/50 uppercase tracking-widest">Recebimento Inferior</span>
             <span className="text-2xl font-black">{metrics.entradasInferiores}</span>
           </div>
           <div className="flex items-center justify-between border-b border-white/10 py-4 relative z-10">
-            <span className="text-xs font-bold text-white/50 uppercase tracking-widest">Diverg. Quantidade</span>
+            <span className="text-xs font-bold text-white/50 uppercase tracking-widest">Qtd. Divergente</span>
             <span className="text-2xl font-black">{metrics.divergenciaQuantidade}</span>
           </div>
           <div className="flex items-center justify-between pt-4 relative z-10">
-            <span className="text-xs font-bold text-[#E87722] uppercase tracking-widest">T. Médio</span>
+            <span className="text-xs font-bold text-[#E87722] uppercase tracking-widest">Tempo Médio</span>
             <span className="text-3xl font-black text-[#E87722]">
               {metrics.tempoMedio}<span className="text-lg font-bold text-[#E87722]/60">H</span>
             </span>
@@ -655,7 +690,7 @@ function DashboardInner() {
         <div className="lg:col-span-2 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 p-8 flex flex-col">
           <div className="mb-8">
             <h3 className="text-xl font-black text-[#001A72] tracking-tight">Eficácia (Aplicando Filtros)</h3>
-            <p className="text-sm font-semibold text-slate-400 mt-1">Status percentual dos itens emparelhados</p>
+            <p className="text-sm font-semibold text-slate-400 mt-1">Distribuição de status dos registros analisados</p>
           </div>
           <div className="flex-1 w-full min-h-[250px] relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -700,6 +735,7 @@ function DashboardInner() {
               <div key={item.name} className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="text-xs font-bold text-slate-600">{item.name}</span>
+                <span className="text-xs font-bold text-slate-400">({item.value})</span>
               </div>
             ))}
           </div>
@@ -708,7 +744,7 @@ function DashboardInner() {
         <div className="lg:col-span-3 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 p-8 flex flex-col">
           <div className="mb-8">
             <h3 className="text-xl font-black text-[#001A72] tracking-tight">Hospitais Críticos</h3>
-            <p className="text-sm font-semibold text-slate-400 mt-1">Top 5 unidades com divergência vs recebimento</p>
+            <p className="text-sm font-semibold text-slate-400 mt-1">Top 5 unidades com mais divergências nos envios</p>
           </div>
           <div className="flex-1 w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -719,6 +755,8 @@ function DashboardInner() {
                   cursor={{ fill: '#F1F5F9', radius: 12 } as object}
                   contentStyle={{ borderRadius: '16px', border: 'none', padding: '16px', boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.15)' }}
                   itemStyle={{ color: '#E87722', fontWeight: 900, fontSize: '16px' }}
+                  formatter={(value: number | undefined) => [`${value ?? 0} divergências`, '']}
+                  labelFormatter={(label: unknown) => `Hospital ${label}`}
                 />
                 <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={28}>
                   {barData.map((_, index) => (
@@ -762,15 +800,21 @@ function DashboardInner() {
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Destino</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Tipo</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Documento</TableHead>
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Registros (Saída → Entrada)</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Produto (Saída → Entrada)</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-8 text-xs uppercase tracking-widest text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-16 text-center text-slate-400 font-bold">
-                      Nenhum dado se adequa aos filtros selecionados.
+                    <TableCell colSpan={7} className="py-20 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                          <FileText size={24} className="text-slate-300" />
+                        </div>
+                        <p className="font-bold text-sm text-slate-500">Nenhum registro encontrado para os filtros aplicados.</p>
+                        <p className="text-xs text-slate-400">Tente expandir o período ou use o botão <strong>Limpar Filtros</strong>.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -793,13 +837,26 @@ function DashboardInner() {
                       </TableCell>
                       <TableCell className="font-mono text-sm font-bold text-slate-400 py-5 px-4">{row.documento}</TableCell>
                       <TableCell className="py-5 px-4">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-slate-800 font-bold text-sm truncate max-w-[200px]" title={row.produto_saida}>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-slate-800 font-bold text-sm truncate max-w-[220px]" title={row.produto_saida}>
                             {row.produto_saida}
                           </span>
-                          <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 truncate max-w-[200px]" title={row.produto_entrada}>
-                            ↳ {row.produto_entrada || '---'}
+                          <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 truncate max-w-[220px]" title={row.produto_entrada}>
+                            ↳ {row.produto_entrada || '—'}
                           </span>
+                          {(row.valor_saida != null || row.valor_entrada != null) && (
+                            <span className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[11px] font-semibold text-blue-500">{formatCurrency(row.valor_saida || 0)}</span>
+                              <span className="text-[11px] text-slate-300">→</span>
+                              <span className={`text-[11px] font-semibold ${
+                                row.valor_entrada != null && row.valor_entrada < (row.valor_saida || 0)
+                                  ? 'text-red-400'
+                                  : 'text-emerald-500'
+                              }`}>
+                                {row.valor_entrada != null ? formatCurrency(row.valor_entrada) : '—'}
+                              </span>
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="py-5 px-8 text-right">
