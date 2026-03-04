@@ -49,13 +49,15 @@ interface ItemClinico {
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
-// Parseia strings de data (YYYY-MM-DD) sem deslocamento de fuso horário.
-// new Date("2026-02-28") é interpretado como UTC midnight → no Brasil (UTC-3) vira 27/02.
-// Solução: adiciona T12:00:00 para garantir que a data local seja sempre o dia correto.
+// Parseia strings de data sem deslocamento de fuso horário (UTC-3 / Brasil).
+// Extrai sempre os 10 primeiros caracteres (YYYY-MM-DD) e acrescenta T12:00:00.
+// Isso funciona tanto para strings curtas "2026-03-01" (formato novo) quanto para
+// timestamps completos "2026-03-01T00:00:00.000Z" (formato antigo armazenado como UTC
+// midnight — que sem a correção viraria 28/02 no fuso local UTC-3).
 const parseLocalDate = (val: string | null | undefined): Date | null => {
   if (!val) return null
-  const s = val.length === 10 ? val + 'T12:00:00' : val
-  const d = new Date(s)
+  const datePart = String(val).substring(0, 10) // extrai YYYY-MM-DD de qualquer formato
+  const d = new Date(datePart + 'T12:00:00')    // meio-dia local → imune a UTC offset
   return isNaN(d.getTime()) ? null : d
 }
 
@@ -113,8 +115,9 @@ const fetchAllItens = async (): Promise<{ itens: ItemClinico[]; lastUpdate: stri
   return { itens: allItens, lastUpdate }
 }
 
-const syncEmails = async (): Promise<string> => {
-  const res = await fetch('/api/atualizar-agora', { method: 'POST' })
+const syncEmails = async (force = false): Promise<string> => {
+  const url = force ? '/api/atualizar-agora?force=true' : '/api/atualizar-agora'
+  const res = await fetch(url, { method: 'POST' })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Erro ao sincronizar')
   return data.message || 'Sincronização concluída!'
@@ -142,8 +145,9 @@ function applyFilters(
     result = result.filter(item => {
       const raw = item.data_transferencia
       if (!raw) return false
-      // Adiciona T12:00:00 para evitar que datas YYYY-MM-DD virem dia anterior no fuso UTC-3
-      const d = new Date(String(raw).length === 10 ? raw + 'T12:00:00' : raw)
+      // Extrai YYYY-MM-DD dos primeiros 10 chars + T12:00:00 (imune ao UTC offset).
+      // Funciona para "2026-03-01" (novo) e "2026-03-01T00:00:00.000Z" (legado UTC midnight).
+      const d = new Date(String(raw).substring(0, 10) + 'T12:00:00')
       if (isNaN(d.getTime())) return false
       const mes = d.getMonth()
       const ano = d.getFullYear()
@@ -282,7 +286,7 @@ function DashboardInner() {
 
   // ── Sync Mutation ──
   const syncMutation = useMutation({
-    mutationFn: syncEmails,
+    mutationFn: () => syncEmails(false),
     onMutate: () => {
       toast.loading('Sincronizando emails do Gmail...', { id: 'sync' })
     },
@@ -293,6 +297,20 @@ function DashboardInner() {
     onError: (error: Error) => {
       toast.error(error.message, { id: 'sync', duration: 8000 })
       queryClient.invalidateQueries({ queryKey: ['dashboard-itens'] })
+    },
+  })
+
+  const forceSyncMutation = useMutation({
+    mutationFn: () => syncEmails(true),
+    onMutate: () => {
+      toast.loading('Reprocessando email mais recente (ignorando lidos)...', { id: 'force-sync' })
+    },
+    onSuccess: (message) => {
+      toast.success(message, { id: 'force-sync', duration: 6000 })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-itens'] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message, { id: 'force-sync', duration: 8000 })
     },
   })
 
@@ -417,6 +435,7 @@ function DashboardInner() {
   }
 
   const isSyncing = syncMutation.isPending
+  const isForceSyncing = forceSyncMutation.isPending
   const isLoadingData = isLoading && rawItens.length === 0
 
   // ── Loading State ──
@@ -473,10 +492,10 @@ function DashboardInner() {
           )}
         </div>
 
-        <div className="relative z-10 flex flex-col items-end gap-4 w-full md:w-auto">
+        <div className="relative z-10 flex flex-col items-end gap-2 w-full md:w-auto">
           <Button
             onClick={() => syncMutation.mutate()}
-            disabled={isSyncing || isLoading}
+            disabled={isSyncing || isForceSyncing || isLoading}
             className="w-full md:w-auto bg-[#E87722] hover:bg-white hover:text-[#E87722] text-white font-black px-8 py-6 rounded-2xl shadow-lg shadow-[#E87722]/30 transition-all active:scale-95 flex items-center gap-2 group"
           >
             <RefreshCw
@@ -485,6 +504,15 @@ function DashboardInner() {
             />
             {isSyncing ? 'Sincronizando...' : 'Sincronizar Emails'}
           </Button>
+          <button
+            onClick={() => forceSyncMutation.mutate()}
+            disabled={isSyncing || isForceSyncing || isLoading}
+            title="Reprocessa o email mais recente mesmo que já tenha sido lido anteriormente. Use quando os dados não aparecerem após sincronizar."
+            className="w-full md:w-auto text-white/50 hover:text-white/80 text-[11px] font-bold flex items-center justify-end gap-1.5 px-2 py-1 transition-colors disabled:opacity-30"
+          >
+            <RefreshCw size={11} className={isForceSyncing ? 'animate-spin' : ''} />
+            {isForceSyncing ? 'Reprocessando...' : 'Reprocessar email lido'}
+          </button>
           <div className="flex items-center gap-2 text-white/60 text-xs font-bold bg-black/10 px-4 py-2 rounded-xl backdrop-blur-sm">
             <Info size={14} /> Atualizado {lastUpdate ? `hoje, às ${lastUpdate}` : 'agora'}
           </div>
