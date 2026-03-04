@@ -118,7 +118,31 @@ export async function POST(req: Request) {
 
         // 3. Executa algoritmo de análise de correspondência (Fuzzy Matching TypeScript)
         console.log(">> Etapa 3: Executando algoritmo de análise de correspondência...")
-        const { analise, stats } = analisarItens(arquivosSaida, arquivosEntrada);
+
+        // Agrega (soma qtd + valor) linhas com mesma chave única antes de analisar
+        // Isso evita que duplicatas internas no Excel causem correspondências incorretas
+        function agregarAnaliseRows(rows: AnaliseRow[]): AnaliseRow[] {
+            const m = new Map<string, AnaliseRow>()
+            for (const r of rows) {
+                const key = `${r.documento}|${r.unidade_origem}|${r.unidade_destino}|${r.ds_produto}`
+                if (m.has(key)) {
+                    const ex = m.get(key)!
+                    m.set(key, {
+                        ...ex,
+                        qt_entrada: (Number(ex.qt_entrada) || 0) + (Number(r.qt_entrada) || 0),
+                        valor_total: (Number(ex.valor_total) || 0) + (Number(r.valor_total) || 0),
+                    })
+                } else {
+                    m.set(key, { ...r })
+                }
+            }
+            return Array.from(m.values())
+        }
+
+        const { analise, stats } = analisarItens(
+            agregarAnaliseRows(arquivosSaida),
+            agregarAnaliseRows(arquivosEntrada)
+        );
 
         // Map analise array of objects into array of arrays for the sheets client matching the Headers
         const sheetsHeaders = [
@@ -162,7 +186,7 @@ export async function POST(req: Request) {
 
             // Supabase Payload format
             supabaseRecords.push({
-                data_transferencia: item.data ? new Date(item.data) : null,
+                data_transferencia: item.data ? new Date(item.data).toISOString().split('T')[0] : null,
                 documento: String(item.doc || ''),
                 unidade_origem: String(item.origem || ''),
                 unidade_destino: String(item.destino || ''),
@@ -170,7 +194,7 @@ export async function POST(req: Request) {
                 qtd_saida: Number(item.qtd_saida || 0),
                 produto_entrada: item.prod_entrada ? String(item.prod_entrada) : null,
                 qtd_entrada: Number(item.qtd_entrada || 0),
-                data_recebimento: item.data_entrada ? new Date(item.data_entrada) : null,
+                data_recebimento: item.data_entrada ? new Date(item.data_entrada).toISOString().split('T')[0] : null,
                 status_item: String(item.status || '').toLowerCase().replace('✅ ', '').replace('❌ ', '').replace('⚠️ ', ''),
                 tempo_recebimento: Number(item.tempo_recebimento || 0),
                 valor_saida: Number(item.val_saida || 0),
@@ -201,7 +225,8 @@ export async function POST(req: Request) {
             for (let i = 0; i < uniqueSupabaseRecords.length; i += BATCH_SIZE) {
                 const chunk = uniqueSupabaseRecords.slice(i, i + BATCH_SIZE)
                 const { error: errItens } = await supabaseAdmin.from('itens_clinicos').upsert(chunk, {
-                    onConflict: 'documento, unidade_origem, unidade_destino, produto_saida'
+                    onConflict: 'documento,unidade_origem,unidade_destino,produto_saida',
+                    ignoreDuplicates: false
                 })
                 if (errItens) throw new Error(`Falha ao salvar itens_clinicos no Supabase: ${errItens.message}`);
             }
