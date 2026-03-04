@@ -1,5 +1,8 @@
 import './globals.css'
 import type { Metadata } from 'next'
+import { NuqsAdapter } from 'nuqs/adapters/next/app'
+import { Toaster } from 'sonner'
+import { QueryProvider } from '@/providers/query-provider'
 
 export const metadata: Metadata = {
     title: 'Análise de Transferências',
@@ -14,7 +17,19 @@ export default function RootLayout({
     return (
         <html lang="pt-BR">
             <body className="antialiased font-sans">
-                {children}
+                <NuqsAdapter>
+                    <QueryProvider>
+                        {children}
+                        <Toaster
+                            position="top-right"
+                            richColors
+                            closeButton
+                            toastOptions={{
+                                style: { fontFamily: 'inherit' },
+                            }}
+                        />
+                    </QueryProvider>
+                </NuqsAdapter>
             </body>
         </html>
     )
