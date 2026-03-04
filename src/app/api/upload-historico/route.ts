@@ -39,7 +39,7 @@ function rowToAnaliseRow(row: any): AnaliseRow {
         unidade_destino: String(row['Unidade Destino'] || row['unidade_destino'] || row['Destino'] || ''),
         documento: String(row['Documento'] || row['Nro Doc'] || row['documento'] || ''),
         ds_produto: String(row['Ds Produto'] || row['Produto'] || row['ds_produto'] || ''),
-        especie: String(row['Ds Especie'] || row['Especie'] || ''),
+        especie: String(row['Ds Especie'] || row['Especie'] || row['especie'] || ''),
         valor_total: Number(
             String(row['Total'] || row['Valor Total'] || row['valor_total'] || '0')
                 .replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.')
