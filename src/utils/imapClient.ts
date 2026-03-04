@@ -28,12 +28,17 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
     try {
         const lock = await client.getMailboxLock('INBOX');
         try {
-            // Busca emails do remetente configurado nos últimos 45 dias
+            // Busca emails nos últimos 45 dias
             const dateStr = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
-            const searchCriteria: SearchObject = {
-                since: dateStr,
-                from: process.env.GMAIL_SENDER || 'pedro.gomes@hospitaldecancer.com.br',
-            };
+            const searchCriteria: SearchObject = { since: dateStr };
+
+            // Filtra por remetente somente se GMAIL_SENDER estiver explicitamente configurada.
+            // Se não estiver (ou usar o placeholder padrão), busca todos os remetentes para não
+            // bloquear a sincronização por uma variável de ambiente mal configurada.
+            const senderEnv = process.env.GMAIL_SENDER || '';
+            if (senderEnv) {
+                searchCriteria.from = senderEnv;
+            }
 
             // Only filter for unseen if not forcing a resync
             if (!force) {

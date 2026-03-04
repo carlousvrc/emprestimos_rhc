@@ -19,11 +19,19 @@ export async function POST(req: Request) {
             console.log(">> Etapa 1: Baixando planilhas de e-mails via IMAP...")
             attachments = await fetchExcelAttachments(force);
             if (attachments.length === 0) {
+                const senderInfo = process.env.GMAIL_SENDER
+                    ? `remetente: ${process.env.GMAIL_SENDER}`
+                    : 'remetente: qualquer (GMAIL_SENDER não configurada)'
+                const subjectInfo = process.env.GMAIL_SUBJECT
+                    ? `assunto contém: "${process.env.GMAIL_SUBJECT}"`
+                    : 'assunto: qualquer'
+                const caixaInfo = `caixa: INBOX de ${process.env.GMAIL_USER || 'gestao_mxm@grupohospitalcasa.com.br'}`
+                const debug = `[${caixaInfo} | ${senderInfo} | ${subjectInfo}]`
                 return NextResponse.json({
                     success: true,
                     message: force
-                        ? "Nenhum arquivo Excel encontrado nos últimos 45 dias (mesmo no modo forçado)."
-                        : "Nenhum novo email com planilhas para processar. Use ?force=true para forçar reprocessamento.",
+                        ? `Nenhum arquivo Excel encontrado nos últimos 45 dias (modo forçado). ${debug}`
+                        : `Nenhum novo email com planilhas encontrado. Use "Reprocessar email lido" para ignorar emails já lidos. ${debug}`,
                     count: 0
                 })
             }
