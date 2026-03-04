@@ -3,6 +3,26 @@ import { createClient } from '@supabase/supabase-js'
 import { analisarItens, AnaliseRow } from '@/utils/analisador'
 import * as XLSX from 'xlsx'
 
+// Converte número ou string (BR "1.234,56" / EN "1234.56" / R$) para float
+// Quando o XLSX já entrega o valor como number (célula numérica), usa direto
+function parseValorNumerico(val: any): number {
+    if (typeof val === 'number') return val          // Já é número (XLSX numeric cell)
+    if (!val && val !== 0) return 0
+    const s = String(val).trim()
+        .replace(/R\$\s?/g, '')                      // remove prefixo R$
+        .replace(/\s/g, '')
+    // Formato BR: ponto como milhar, vírgula como decimal  → "1.234,56"
+    if (s.includes(',') && s.includes('.')) {
+        return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0
+    }
+    // Somente vírgula → decimal BR puro  → "8,30"
+    if (s.includes(',')) {
+        return parseFloat(s.replace(',', '.')) || 0
+    }
+    // Somente ponto → já é decimal EN  → "8.30"
+    return parseFloat(s) || 0
+}
+
 // Converte valor serial do Excel, string BR ou ISO para Date
 function parseDateExcel(val: any): Date {
     if (!val) return new Date()
@@ -40,13 +60,11 @@ function rowToAnaliseRow(row: any): AnaliseRow {
         documento: String(row['Documento'] || row['Nro Doc'] || row['documento'] || ''),
         ds_produto: String(row['Ds Produto'] || row['Produto'] || row['ds_produto'] || ''),
         especie: String(row['Ds Especie'] || row['Especie'] || row['especie'] || ''),
-        valor_total: Number(
-            String(row['Total'] || row['Valor Total'] || row['valor_total'] || '0')
-                .replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.')
+        valor_total: parseValorNumerico(
+            row['Total'] ?? row['Valor Total'] ?? row['valor_total'] ?? 0
         ),
-        qt_entrada: Number(
-            String(row['Qt Entrada'] || row['Qtd'] || row['Qtd Entrada'] || row['qt_entrada'] || '0')
-                .replace(',', '.')
+        qt_entrada: parseValorNumerico(
+            row['Qt Entrada'] ?? row['Qtd'] ?? row['Qtd Entrada'] ?? row['qt_entrada'] ?? 0
         ),
     }
 }

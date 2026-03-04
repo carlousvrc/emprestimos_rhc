@@ -56,21 +56,28 @@ export async function POST(req: Request) {
 
             const parseDateExcel = (val: any) => {
                 if (!val) return new Date();
-                // Se for numero do excel serial
                 if (typeof val === 'number') {
                     return new Date(Math.round((val - 25569) * 86400 * 1000));
                 }
-                // Se for string DD/MM/YYYY
                 if (typeof val === 'string' && val.includes('/')) {
                     const parts = val.split(/[\s/:]+/);
                     if (parts.length >= 3) {
-                        // Assume DD/MM/YYYY
                         return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
                     }
                 }
                 const d = new Date(val);
                 if (!isNaN(d.getTime())) return d;
                 return new Date();
+            };
+
+            // Converte célula numérica ou string BR/EN para float (evita remoção indevida do ponto decimal)
+            const parseValor = (val: any): number => {
+                if (typeof val === 'number') return val;
+                if (!val && val !== 0) return 0;
+                const s = String(val).trim().replace(/R\$\s?/g, '').replace(/\s/g, '');
+                if (s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+                if (s.includes(',')) return parseFloat(s.replace(',', '.')) || 0;
+                return parseFloat(s) || 0;
             };
 
             for (const row of jsonData) {
@@ -88,8 +95,8 @@ export async function POST(req: Request) {
                     documento: String(row['Documento'] || row['Nro Doc'] || row['documento'] || ''),
                     ds_produto: String(row['Ds Produto'] || row['Produto'] || row['ds_produto'] || ''),
                     especie: String(row['Ds Especie'] || row['Especie'] || row['especie'] || ''),
-                    valor_total: Number(String(row['Total'] || row['Valor Total'] || row['valor_total'] || '0').replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.')),
-                    qt_entrada: Number(String(row['Qt Entrada'] || row['Qtd'] || row['Qtd Entrada'] || row['qt_entrada'] || '0').replace(',', '.'))
+                    valor_total: parseValor(row['Total'] ?? row['Valor Total'] ?? row['valor_total'] ?? 0),
+                    qt_entrada: parseValor(row['Qt Entrada'] ?? row['Qtd'] ?? row['Qtd Entrada'] ?? row['qt_entrada'] ?? 0)
                 };
 
                 // Classificação por heurística de nome de arquivo (score saida vs entrada)
