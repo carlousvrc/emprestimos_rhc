@@ -13,6 +13,7 @@ import {
   Clock, Inbox, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
+import { classificarMovimentacao } from '@/utils/analisador'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ interface ItemClinico {
   diferenca_financeira?: number
   status_item: string
   created_at?: string
+  tipo_movimentacao?: 'interno' | 'externo'
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -87,7 +89,12 @@ const fetchAllItens = async (): Promise<{ itens: ItemClinico[]; lastUpdate: stri
           keepFetching = false
         }
       }
-      return items
+      // Enrich with computed Interno/Externo classification
+      return items.map(item => ({
+        ...item,
+        tipo_movimentacao: classificarMovimentacao(item.unidade_origem, item.unidade_destino),
+      }))
+
     })(),
   ])
 
@@ -118,7 +125,8 @@ function applyFilters(
   items: ItemClinico[],
   periodo: string,
   statusFilter: string[],
-  unidadeFilter: string[]
+  unidadeFilter: string[],
+  tipoFilter: string
 ): ItemClinico[] {
   let result = items
 
@@ -161,6 +169,10 @@ function applyFilters(
         unidadeFilter.includes(item.unidade_origem) ||
         unidadeFilter.includes(item.unidade_destino)
     )
+  }
+
+  if (tipoFilter && tipoFilter !== 'Todos') {
+    result = result.filter(item => item.tipo_movimentacao === tipoFilter)
   }
 
   return result
@@ -221,6 +233,12 @@ function StatusBadge({ status }: { status: string }) {
   return <span className="inline-flex text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">{status}</span>
 }
 
+function TipoBadge({ tipo }: { tipo?: 'interno' | 'externo' }) {
+  if (tipo === 'externo')
+    return <span className="inline-flex text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Externo ↩</span>
+  return <span className="inline-flex text-[#001A72] bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Interno</span>
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function DashboardInner() {
@@ -231,11 +249,12 @@ function DashboardInner() {
     periodo: parseAsString.withDefault('Todo o Período'),
     status: parseAsArrayOf(parseAsString).withDefault([]),
     unidade: parseAsArrayOf(parseAsString).withDefault([]),
+    tipo: parseAsString.withDefault('Todos'),
     page: parseAsInteger.withDefault(1),
     pageSize: parseAsInteger.withDefault(50),
   })
 
-  const { periodo, status: statusFilter, unidade: unidadeFilter, page, pageSize } = filters
+  const { periodo, status: statusFilter, unidade: unidadeFilter, tipo: tipoFilter, page, pageSize } = filters
 
   // ── Data Fetching (TanStack Query) ──
   const { data, isLoading, isError } = useQuery({
@@ -264,8 +283,8 @@ function DashboardInner() {
 
   // ── Computed Data ──
   const filteredData = useMemo(
-    () => applyFilters(rawItens, periodo, statusFilter, unidadeFilter),
-    [rawItens, periodo, statusFilter, unidadeFilter]
+    () => applyFilters(rawItens, periodo, statusFilter, unidadeFilter, tipoFilter),
+    [rawItens, periodo, statusFilter, unidadeFilter, tipoFilter]
   )
 
   const metrics = useMemo(() => computeMetrics(filteredData), [filteredData])
@@ -319,11 +338,17 @@ function DashboardInner() {
   const safePage = Math.min(page, totalPages)
   const paginatedData = filteredData.slice((safePage - 1) * pageSize, safePage * pageSize)
 
+  const externosCount = useMemo(
+    () => filteredData.filter(i => i.tipo_movimentacao === 'externo').length,
+    [filteredData]
+  )
+
   const setPage = (p: number) => setFilters({ page: p })
   const setPageSize = (s: number) => setFilters({ pageSize: s, page: 1 })
   const setPeriodo = (p: string) => setFilters({ periodo: p, page: 1 })
   const setStatusFilter = (s: string[]) => setFilters({ status: s, page: 1 })
   const setUnidadeFilter = (u: string[]) => setFilters({ unidade: u, page: 1 })
+  const setTipoFilter = (t: string) => setFilters({ tipo: t, page: 1 })
 
   // ── Export ──
   const exportToExcel = () => {
@@ -331,6 +356,7 @@ function DashboardInner() {
       'Data': formatDate(item.data_transferencia),
       'Unidade Origem': item.unidade_origem,
       'Unidade Destino': item.unidade_destino,
+      'Tipo': item.tipo_movimentacao === 'externo' ? 'Externo' : 'Interno',
       'Documento': item.documento,
       'Produto (Saída)': item.produto_saida,
       'Produto (Entrada)': item.produto_entrada || '-',
@@ -479,8 +505,36 @@ function DashboardInner() {
               placeholder="Buscar Hospitais..."
             />
           </div>
+          <div className="flex items-center gap-1 border-l border-slate-100 pl-3">
+            {(['Todos', 'interno', 'externo'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTipoFilter(t)}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 ${
+                  tipoFilter === t
+                    ? t === 'externo'
+                      ? 'bg-amber-500 text-white shadow-md'
+                      : 'bg-[#001A72] text-white shadow-md'
+                    : 'bg-transparent text-slate-500 hover:bg-slate-100/50 hover:text-[#001A72]'
+                }`}
+              >
+                {t === 'Todos' ? 'Todos' : t === 'interno' ? 'Internos' : 'Externos'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* External movements alert banner */}
+      {externosCount > 0 && (
+        <div className="flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-6 py-4 text-amber-800 font-bold text-sm -mt-4 md:-mt-8 relative z-20 mx-4">
+          <AlertCircle size={18} className="text-amber-500 shrink-0" />
+          <span>
+            <strong>{externosCount}</strong> movimentação{externosCount !== 1 ? 'ões' : ''} externa{externosCount !== 1 ? 's' : ''} identificada{externosCount !== 1 ? 's' : ''} —
+            material{externosCount !== 1 ? 'is' : ''} de outros hospitais que precisam ser devolvidos.
+          </span>
+        </div>
+      )}
 
       {/* 3. Financial KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -706,6 +760,7 @@ function DashboardInner() {
                   <TableHead className="font-extrabold text-slate-400 py-6 px-8 text-xs uppercase tracking-widest w-[120px]">Data</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Origem</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Destino</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Tipo</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Documento</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Registros (Saída → Entrada)</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-8 text-xs uppercase tracking-widest text-right">Status</TableHead>
@@ -714,7 +769,7 @@ function DashboardInner() {
               <TableBody>
                 {paginatedData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-16 text-center text-slate-400 font-bold">
+                    <TableCell colSpan={7} className="py-16 text-center text-slate-400 font-bold">
                       Nenhum dado se adequa aos filtros selecionados.
                     </TableCell>
                   </TableRow>
@@ -732,6 +787,9 @@ function DashboardInner() {
                           <div className="w-1.5 h-1.5 rounded-full bg-[#E87722] shrink-0" />
                           {row.unidade_destino}
                         </div>
+                      </TableCell>
+                      <TableCell className="py-5 px-4">
+                        <TipoBadge tipo={row.tipo_movimentacao} />
                       </TableCell>
                       <TableCell className="font-mono text-sm font-bold text-slate-400 py-5 px-4">{row.documento}</TableCell>
                       <TableCell className="py-5 px-4">

@@ -58,6 +58,37 @@ function normalizarHospital(nome: string): string {
     return HOSPITAL_DE_PARA[nomeNorm] ?? nomeNorm
 }
 
+// ---------- Classificação Interno / Externo ----------
+// Conjunto dos nomes canônicos de todas as unidades da Rede Casa.
+// Unidades cujo nome normalizado NÃO estiver neste conjunto são consideradas Externas
+// (outros hospitais de fora da rede que emprestam materiais/medicamentos para devolução).
+export const UNIDADES_INTERNAS = new Set<string>([
+    'HOSPITAL CASA DE PORTUGAL',
+    'HOSPITAL CASA MENSSANA',
+    'HOSPITAL CASA EVANGELICO',
+    'HOSPITAL CASA RIO LARANJEIRAS',
+    'HOSPITAL CASA RIO BOTAFOGO',
+    'HOSPITAL CASA SANTA CRUZ',
+    'HOSPITAL CASA SAO BERNARDO',
+    'HOSPITAL CASA PREMIUM',
+    'HOSPITAL CASA ILHA DO GOVERNADOR',
+])
+
+/**
+ * Classifica uma movimentação como 'interno' ou 'externo'.
+ * Interno  → ambas as unidades pertencem à Rede Casa.
+ * Externo  → ao menos uma unidade é de fora da rede (requer devolução futura).
+ */
+export function classificarMovimentacao(
+    unidadeOrigem: string,
+    unidadeDestino: string
+): 'interno' | 'externo' {
+    const norm = (s: string) => String(s || '').toUpperCase().trim()
+    const origemInterna = UNIDADES_INTERNAS.has(norm(unidadeOrigem))
+    const destinoInterno = UNIDADES_INTERNAS.has(norm(unidadeDestino))
+    return origemInterna && destinoInterno ? 'interno' : 'externo'
+}
+
 // ---------- Wrapper to prepare rows (mirrors preparar_dataframe) ----------
 export function prepararRows(rows: AnaliseRow[]): AnaliseRow[] {
     return rows
