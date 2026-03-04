@@ -138,11 +138,19 @@ export async function POST(req: Request) {
             status_item: statusMap[item.status] ?? item.status?.toLowerCase() ?? 'pendente',
         }))
 
+        // Deduplica pelo mesmo critério da constraint única (evita "cannot affect row a second time")
+        const dedupeMap = new Map<string, typeof payload[0]>()
+        for (const record of payload) {
+            const key = `${record.documento}|${record.unidade_origem}|${record.unidade_destino}|${record.produto_saida}`
+            dedupeMap.set(key, record)
+        }
+        const uniquePayload = Array.from(dedupeMap.values())
+
         // Upsert em batches de 100 (unique constraint: documento, unidade_origem, unidade_destino, produto_saida)
         const BATCH = 100
         let inserted = 0
-        for (let i = 0; i < payload.length; i += BATCH) {
-            const chunk = payload.slice(i, i + BATCH)
+        for (let i = 0; i < uniquePayload.length; i += BATCH) {
+            const chunk = uniquePayload.slice(i, i + BATCH)
             const { error } = await supabaseAdmin
                 .from('itens_clinicos')
                 .upsert(chunk, { onConflict: 'documento,unidade_origem,unidade_destino,produto_saida' })
@@ -170,7 +178,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
             success: true,
-            message: `${inserted} de ${analise.length} itens processados e consolidados no Banco RHC com sucesso.`,
+            message: `${inserted} itens únicos (de ${analise.length} analisados) consolidados no Banco RHC com sucesso.`,
         })
 
     } catch (error: any) {
