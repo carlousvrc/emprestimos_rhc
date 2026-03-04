@@ -193,7 +193,7 @@ export async function POST(req: Request) {
             const chunk = uniquePayload.slice(i, i + BATCH)
             const { error } = await supabaseAdmin
                 .from('itens_clinicos')
-                .upsert(chunk, { onConflict: 'documento,unidade_origem,unidade_destino,produto_saida', ignoreDuplicates: false })
+                .upsert(chunk, { onConflict: 'documento,unidade_origem,unidade_destino,produto_saida,data_transferencia', ignoreDuplicates: false })
             if (error) {
                 console.error('Supabase upsert error:', error)
                 throw new Error(`Falha ao inserir itens: ${error.message}`)

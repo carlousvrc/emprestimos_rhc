@@ -225,7 +225,7 @@ export async function POST(req: Request) {
             for (let i = 0; i < uniqueSupabaseRecords.length; i += BATCH_SIZE) {
                 const chunk = uniqueSupabaseRecords.slice(i, i + BATCH_SIZE)
                 const { error: errItens } = await supabaseAdmin.from('itens_clinicos').upsert(chunk, {
-                    onConflict: 'documento,unidade_origem,unidade_destino,produto_saida',
+                    onConflict: 'documento,unidade_origem,unidade_destino,produto_saida,data_transferencia',
                     ignoreDuplicates: false
                 })
                 if (errItens) throw new Error(`Falha ao salvar itens_clinicos no Supabase: ${errItens.message}`);
