@@ -92,15 +92,27 @@ export async function POST(req: Request) {
             else arquivosEntrada.push(...ambiguos)
         }
 
-        if (arquivosSaida.length === 0 || arquivosEntrada.length === 0) {
+        // Deduplica fontes pelo critério da constraint única do DB antes de analisar
+        function deduplicarAnaliseRows(rows: AnaliseRow[]): AnaliseRow[] {
+            const m = new Map<string, AnaliseRow>()
+            for (const r of rows) {
+                const key = `${r.documento}|${r.unidade_origem}|${r.unidade_destino}|${r.ds_produto}`
+                m.set(key, r)
+            }
+            return Array.from(m.values())
+        }
+        const saida = deduplicarAnaliseRows(arquivosSaida)
+        const entrada = deduplicarAnaliseRows(arquivosEntrada)
+
+        if (saida.length === 0 || entrada.length === 0) {
             return NextResponse.json(
                 { error: 'Não foi possível identificar arquivos de Saída e Entrada. Verifique se os nomes contêm "concedido/saida" e "recebido/entrada".' },
                 { status: 422 }
             )
         }
 
-        // Mesmo algoritmo de análise usado no sync de emails
-        const { analise, stats } = analisarItens(arquivosSaida, arquivosEntrada)
+        // Mesmo algoritmo de análise usado no sync de emails (usando fontes já deduplicadas)
+        const { analise, stats } = analisarItens(saida, entrada)
 
         if (analise.length === 0) {
             return NextResponse.json(
@@ -153,7 +165,7 @@ export async function POST(req: Request) {
             const chunk = uniquePayload.slice(i, i + BATCH)
             const { error } = await supabaseAdmin
                 .from('itens_clinicos')
-                .upsert(chunk, { onConflict: 'documento,unidade_origem,unidade_destino,produto_saida' })
+                .upsert(chunk, { onConflict: 'documento,unidade_origem,unidade_destino,produto_saida', ignoreDuplicates: false })
             if (error) {
                 console.error('Supabase upsert error:', error)
                 throw new Error(`Falha ao inserir itens: ${error.message}`)
