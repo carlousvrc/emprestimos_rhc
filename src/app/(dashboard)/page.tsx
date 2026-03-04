@@ -53,7 +53,7 @@ const fetchAllItens = async (): Promise<{ itens: ItemClinico[]; lastUpdate: stri
       .order('created_at', { ascending: false })
       .limit(1),
     (async () => {
-      const PAGE_SIZE = 2000
+      const PAGE_SIZE = 1000 // Supabase max-rows padrão é 1000 por request
       let items: ItemClinico[] = []
       let from = 0
       let keepFetching = true

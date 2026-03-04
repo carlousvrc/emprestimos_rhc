@@ -92,17 +92,27 @@ export async function POST(req: Request) {
             else arquivosEntrada.push(...ambiguos)
         }
 
-        // Deduplica fontes pelo critério da constraint única do DB antes de analisar
-        function deduplicarAnaliseRows(rows: AnaliseRow[]): AnaliseRow[] {
+        // Agrega (soma qtd + valor) linhas com mesma chave única antes de analisar
+        // Isso preserva os totais financeiros corretos em vez de descartar duplicatas
+        function agregarAnaliseRows(rows: AnaliseRow[]): AnaliseRow[] {
             const m = new Map<string, AnaliseRow>()
             for (const r of rows) {
                 const key = `${r.documento}|${r.unidade_origem}|${r.unidade_destino}|${r.ds_produto}`
-                m.set(key, r)
+                if (m.has(key)) {
+                    const ex = m.get(key)!
+                    m.set(key, {
+                        ...ex,
+                        qt_entrada: (Number(ex.qt_entrada) || 0) + (Number(r.qt_entrada) || 0),
+                        valor_total: (Number(ex.valor_total) || 0) + (Number(r.valor_total) || 0),
+                    })
+                } else {
+                    m.set(key, { ...r })
+                }
             }
             return Array.from(m.values())
         }
-        const saida = deduplicarAnaliseRows(arquivosSaida)
-        const entrada = deduplicarAnaliseRows(arquivosEntrada)
+        const saida = agregarAnaliseRows(arquivosSaida)
+        const entrada = agregarAnaliseRows(arquivosEntrada)
 
         if (saida.length === 0 || entrada.length === 0) {
             return NextResponse.json(
