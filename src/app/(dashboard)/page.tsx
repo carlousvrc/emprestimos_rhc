@@ -43,6 +43,21 @@ interface ItemClinico {
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
+// Parseia strings de data (YYYY-MM-DD) sem deslocamento de fuso horário.
+// new Date("2026-02-28") é interpretado como UTC midnight → no Brasil (UTC-3) vira 27/02.
+// Solução: adiciona T12:00:00 para garantir que a data local seja sempre o dia correto.
+const parseLocalDate = (val: string | null | undefined): Date | null => {
+  if (!val) return null
+  const s = val.length === 10 ? val + 'T12:00:00' : val
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
+const formatDate = (val: string | null | undefined): string => {
+  const d = parseLocalDate(val)
+  return d ? d.toLocaleDateString('pt-BR') : ''
+}
+
 const fetchAllItens = async (): Promise<{ itens: ItemClinico[]; lastUpdate: string }> => {
   const supabase = createClient()
 
@@ -115,7 +130,8 @@ function applyFilters(
     result = result.filter(item => {
       const raw = item.data_transferencia
       if (!raw) return false
-      const d = new Date(raw)
+      // Adiciona T12:00:00 para evitar que datas YYYY-MM-DD virem dia anterior no fuso UTC-3
+      const d = new Date(String(raw).length === 10 ? raw + 'T12:00:00' : raw)
       if (isNaN(d.getTime())) return false
       const mes = d.getMonth()
       const ano = d.getFullYear()
@@ -256,8 +272,8 @@ function DashboardInner() {
 
   const periodoApurado = useMemo(() => {
     const datas = filteredData
-      .map(i => (i.data_transferencia ? new Date(i.data_transferencia) : null))
-      .filter((d): d is Date => d !== null && !isNaN(d.getTime()))
+      .map(i => parseLocalDate(i.data_transferencia))
+      .filter((d): d is Date => d !== null)
     if (datas.length === 0) return null
     const min = new Date(Math.min(...datas.map(d => d.getTime())))
     const max = new Date(Math.max(...datas.map(d => d.getTime())))
@@ -312,7 +328,7 @@ function DashboardInner() {
   // ── Export ──
   const exportToExcel = () => {
     const flatData = filteredData.map(item => ({
-      'Data': new Date(item.data_transferencia).toLocaleDateString('pt-BR'),
+      'Data': formatDate(item.data_transferencia),
       'Unidade Origem': item.unidade_origem,
       'Unidade Destino': item.unidade_destino,
       'Documento': item.documento,
@@ -707,7 +723,7 @@ function DashboardInner() {
                     <TableRow key={idx} className="border-b border-slate-50 hover:bg-[#F8FAFC] transition-colors">
                       <TableCell className="py-5 px-8">
                         <div className="font-bold text-slate-600 bg-slate-100/50 inline-block px-3 py-1.5 rounded-lg text-xs">
-                          {new Date(row.data_transferencia || row.created_at || '').toLocaleDateString('pt-BR')}
+                          {formatDate(row.data_transferencia || row.created_at || '')}
                         </div>
                       </TableCell>
                       <TableCell className="font-bold text-[#001A72] py-5 px-4">{row.unidade_origem}</TableCell>
