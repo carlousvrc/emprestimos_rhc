@@ -152,7 +152,7 @@ export function extrairComponentesProduto(descricao: any): ComponentesProduto {
     return componentes
 }
 
-// Emulate Python's SequenceMatcher ratio utilizing string-similarity library
+// Calcula similaridade entre dois produtos usando a biblioteca string-similarity
 export function calcularSimilaridadePrecalc(comp1: ComponentesProduto, comp2: ComponentesProduto, ignorePenalties = false): { score: number, detalhes: string } {
     let score = 0
     const detalhes: string[] = []

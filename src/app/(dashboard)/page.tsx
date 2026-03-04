@@ -94,7 +94,7 @@ const syncEmails = async (): Promise<string> => {
   return data.message || 'Sincronização concluída!'
 }
 
-// ─── Filtering logic (mirrors Python analise_3.0.py) ─────────────────────────
+// ─── Lógica de filtragem e paginação ──────────────────────────────────────────
 
 const PERIODOS = ['Todo o Período', 'Mês Atual', 'Mês Anterior', 'Últimos 3 Meses'] as const
 const PAGE_SIZES = [25, 50, 100, 200]

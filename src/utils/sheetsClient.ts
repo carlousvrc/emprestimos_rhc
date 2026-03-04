@@ -5,7 +5,7 @@ import * as path from 'path';
 const SHEET_ID = "1UOYbkN1Ugo_PZyrRU9Q5WvYFEcsWkm6Y7uwGvyP_NF4";
 
 async function getAuthClient() {
-    // Priority 1: Service Account JSON file (like the Python script did)
+    // Prioridade 1: arquivo service_account.json local (desenvolvimento)
     const serviceAccountPath = path.join(process.cwd(), 'service_account.json');
     if (fs.existsSync(serviceAccountPath)) {
         const auth = new google.auth.GoogleAuth({

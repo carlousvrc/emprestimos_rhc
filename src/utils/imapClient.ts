@@ -28,8 +28,7 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
     try {
         const lock = await client.getMailboxLock('INBOX');
         try {
-            // IMAP Search parameters matching the Python logic
-            // Look for emails from the specific sender within the last 45 days
+            // Busca emails do remetente configurado nos últimos 45 dias
             const dateStr = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
             const searchCriteria: SearchObject = {
                 since: dateStr,
@@ -83,7 +82,7 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
                     }
                     // Mark as seen so we don't process it again on the next sync
                     await client.messageFlagsAdd({ uid }, ['\\Seen'], { uid: true });
-                    // Stop searching once we found a valid email with Excel attachments (same logic as the Python script)
+                    // Para após encontrar o email mais recente com anexos válidos
                     break;
                 }
             }

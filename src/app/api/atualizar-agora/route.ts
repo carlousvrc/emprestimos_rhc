@@ -74,9 +74,8 @@ export async function POST(req: Request) {
             };
 
             for (const row of jsonData) {
-                // Remapeamento genérico tentando achar as colunas que vieram no CSV do Hosp. Casa
-                // Hosp Casa columns usually: Data, Unidade Origem, Unidade Destino, Documento, Ds Produto, Total, Qt Entrada
-                // We will try exact matches from Python mapping:
+                // Mapeamento flexível de colunas — tenta múltiplas variações de nome
+                // Colunas esperadas: Data, Unidade Origem, Unidade Destino, Documento, Ds Produto, Total, Qt Entrada
                 const dataPura = row['Data'] || row['DATA'] || row['Data/Hora'] || row['data'];
                 const dataFormatada = parseDateExcel(dataPura);
 
@@ -93,8 +92,7 @@ export async function POST(req: Request) {
                     qt_entrada: Number(String(row['Qt Entrada'] || row['Qtd'] || row['Qtd Entrada'] || row['qt_entrada'] || '0').replace(',', '.'))
                 };
 
-                // Heuristic if isSaida/isEntrada from filename failed to explicitly separate
-                // Python script says: s_saida > s_entrada ? arquivos_saida : arquivos_entrada
+                // Classificação por heurística de nome de arquivo (score saida vs entrada)
                 if (isSaida && !isEntrada) {
                     arquivosSaida.push(obj);
                 } else if (isEntrada && !isSaida) {
@@ -111,7 +109,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true, message: "Pares Saída/Entrada inválidos no e-mail", count: 0 });
         }
 
-        // 3. Analyze Data matching Python algorithm
+        // 3. Executa algoritmo de análise de correspondência (Fuzzy Matching TypeScript)
         console.log(">> Etapa 3: Executando algoritmo de análise de correspondência...")
         const { analise, stats } = analisarItens(arquivosSaida, arquivosEntrada);
 

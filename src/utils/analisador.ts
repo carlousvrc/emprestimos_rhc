@@ -20,7 +20,7 @@ export interface AnaliseRow {
     [key: string]: any
 }
 
-// ---------- Hospital normalization (mirrors analise_core._normalizar_hospital) ----------
+// ---------- Normalização de nomes de hospitais (de-para da Rede Casa) ----------
 const HOSPITAL_DE_PARA: Record<string, string> = {
     'CASA DE PORTUGAL': 'HOSPITAL CASA DE PORTUGAL',
     'CASA DE PORTUGAL - REDE CASA': 'HOSPITAL CASA DE PORTUGAL',
@@ -70,7 +70,7 @@ export function prepararRows(rows: AnaliseRow[]): AnaliseRow[] {
         .filter(r => !r.unidade_origem.includes('OFTALMOCASA') && !r.unidade_destino.includes('OFTALMOCASA'))
 }
 
-// Emulates Pandas row transformation and mapping
+// Analisa pares Saída/Entrada por Fuzzy Matching e retorna resultado + estatísticas
 export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow[], limiarSimilaridade = 65) {
     // Apply normalization first (mirrors preparar_dataframe)
     const dfSaida = prepararRows(dfSaidaRaw)
@@ -274,7 +274,7 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
 
             const conformeQtd = Math.abs(diferencaQtd) < 0.01
 
-            // Mirror Python: max(10, valor_s * 0.10) tolerance
+            // Tolerância financeira: max(R$10, 10% do valor de saída)
             let conformeValor: boolean
             if (conformeQtd) {
                 if (valorS < 10) {
@@ -358,7 +358,7 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
         }
     }
 
-    // ---- Orphan Entradas (only within saida date range, mirrors Python logic) ----
+    // ---- Entradas órfãs (sem saída correspondente, dentro do período de referência) ----
     dfEntrada.forEach((row, idx) => {
         if (entradasProcessadas.has(idx)) return
 

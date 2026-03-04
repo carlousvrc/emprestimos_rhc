@@ -22,7 +22,7 @@ export default function HistoricoPage() {
 
   const uploadMutation = useMutation({
     mutationFn: () => uploadFiles(files),
-    onMutate: () => toast.loading('Processando arquivos via Python...', { id: 'upload' }),
+    onMutate: () => toast.loading('Analisando e consolidando arquivos...', { id: 'upload' }),
     onSuccess: (message) => {
       toast.success(message, { id: 'upload', duration: 6000 })
       setFiles([])
@@ -158,7 +158,7 @@ export default function HistoricoPage() {
                   className="bg-[#E87722] hover:bg-[#d16615] text-white font-black px-8 py-7 rounded-2xl shadow-lg shadow-[#E87722]/30 transition-all w-full sm:w-auto"
                 >
                   {isUploading ? (
-                    <><Loader2 className="mr-2 animate-spin" size={20} /> Processando via Python...</>
+                    <><Loader2 className="mr-2 animate-spin" size={20} /> Analisando e Consolidando...</>
                   ) : (
                     <><Sparkles className="mr-2" size={20} /> Processar Arquivos e Consolidar</>
                   )}
@@ -182,8 +182,8 @@ export default function HistoricoPage() {
                 },
                 {
                   step: '2',
-                  title: 'Mapeamento (Machine Learning Py)',
-                  desc: 'Confronta documentações usando Fuzzy Matching (analise_core.py) e consolida divergências.',
+                  title: 'Mapeamento por Fuzzy Matching',
+                  desc: 'Confronta documentações usando algoritmo de similaridade em TypeScript e consolida divergências.',
                 },
                 {
                   step: '3',
