@@ -138,16 +138,19 @@ export async function POST(req: Request) {
             status_item: statusMap[item.status] ?? item.status?.toLowerCase() ?? 'pendente',
         }))
 
-        // Upsert em batches de 100
+        // Insere em batches de 100
         const BATCH = 100
         let inserted = 0
         for (let i = 0; i < payload.length; i += BATCH) {
             const chunk = payload.slice(i, i + BATCH)
             const { error } = await supabaseAdmin
                 .from('itens_clinicos')
-                .upsert(chunk, { onConflict: 'documento,unidade_origem,unidade_destino,produto_saida' })
-            if (error) console.error('Supabase upsert error:', error)
-            else inserted += chunk.length
+                .insert(chunk)
+            if (error) {
+                console.error('Supabase insert error:', error)
+                throw new Error(`Falha ao inserir itens: ${error.message}`)
+            }
+            inserted += chunk.length
         }
 
         // Registra consolidado para o dashboard
