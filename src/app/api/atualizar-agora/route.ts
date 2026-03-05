@@ -62,23 +62,26 @@ export async function POST(req: Request) {
             const isSaida = nameLow.includes('saida') || nameLow.includes('concedido') || nameLow.includes('envio');
             const isEntrada = nameLow.includes('entrada') || nameLow.includes('recebido');
 
+            // BRT = UTC-3 — Vercel roda em UTC, então precisamos marcar o fuso
+            // para que o horário do Excel (hora de Brasília) seja armazenado corretamente.
+            const BRT = '-03:00';
+            const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
             const parseDateExcel = (val: any) => {
                 if (!val) return new Date();
                 if (typeof val === 'number') {
-                    return new Date(Math.round((val - 25569) * 86400 * 1000));
+                    // Serial Excel é hora local (BRT) — ajusta para UTC
+                    return new Date(Math.round((val - 25569) * 86400 * 1000) + BRT_OFFSET_MS);
                 }
                 if (typeof val === 'string' && val.includes('/')) {
                     const parts = val.split(/[\s/:]+/);
                     if (parts.length >= 6) {
-                        // "dd/mm/yyyy hh:mm:ss" → 6 partes com hora
-                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:${parts[5]}`);
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:${parts[5]}${BRT}`);
                     }
                     if (parts.length >= 5) {
-                        // "dd/mm/yyyy hh:mm" → 5 partes
-                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:00`);
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:00${BRT}`);
                     }
                     if (parts.length >= 3) {
-                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00${BRT}`);
                     }
                 }
                 const d = new Date(val);

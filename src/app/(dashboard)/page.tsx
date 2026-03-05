@@ -71,9 +71,11 @@ const formatTime = (val: string | null | undefined): string => {
   if (!val) return '—'
   const d = new Date(val)
   if (isNaN(d.getTime())) return '—'
+  // Dados sem hora: UTC midnight (legado) ou 03:00 UTC (midnight BRT)
+  const uH = d.getUTCHours(), uM = d.getUTCMinutes(), uS = d.getUTCSeconds()
+  if (uM === 0 && uS === 0 && (uH === 0 || uH === 3)) return '—'
   const h = d.getHours()
   const m = d.getMinutes()
-  if (h === 0 && m === 0) return '—' // sem horário registrado
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 

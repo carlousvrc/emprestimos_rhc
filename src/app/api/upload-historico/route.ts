@@ -23,22 +23,26 @@ function parseValorNumerico(val: any): number {
     return parseFloat(s) || 0
 }
 
+// BRT = UTC-3 — Vercel roda em UTC; marcamos o fuso para preservar o horário de Brasília
+const BRT = '-03:00'
+const BRT_OFFSET_MS = 3 * 60 * 60 * 1000
+
 // Converte valor serial do Excel, string BR ou ISO para Date
 function parseDateExcel(val: any): Date {
     if (!val) return new Date()
     if (typeof val === 'number') {
-        return new Date(Math.round((val - 25569) * 86400 * 1000))
+        return new Date(Math.round((val - 25569) * 86400 * 1000) + BRT_OFFSET_MS)
     }
     if (typeof val === 'string' && val.includes('/')) {
         const parts = val.split(/[\s/:]+/)
         if (parts.length >= 6) {
-            return new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${parts[3]}:${parts[4]}:${parts[5]}`)
+            return new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${parts[3]}:${parts[4]}:${parts[5]}${BRT}`)
         }
         if (parts.length >= 5) {
-            return new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${parts[3]}:${parts[4]}:00`)
+            return new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${parts[3]}:${parts[4]}:00${BRT}`)
         }
         if (parts.length >= 3) {
-            return new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T00:00:00`)
+            return new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T00:00:00${BRT}`)
         }
     }
     const d = new Date(val)
