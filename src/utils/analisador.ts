@@ -301,6 +301,67 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
             }
         }
 
+        // ---- Fallback Casa de Portugal: match sem documento ----
+        // O sistema da Casa de Portugal não permite inserir o nº do documento
+        // na entrada, então tentamos match por produto + unidade + quantidade
+        if (!bestMatch && (ehCasaPortugal(rowS.unidade_origem) || ehCasaPortugal(rowS.unidade_destino))) {
+            let bestCpScore = 0
+            for (let j = 0; j < dfEntrada.length; j++) {
+                if (entradasProcessadas.has(j)) continue
+                const rowE = dfEntrada[j]
+
+                // Entrada também deve envolver Casa de Portugal
+                if (!ehCasaPortugal(rowE.unidade_origem) && !ehCasaPortugal(rowE.unidade_destino)) continue
+
+                // Pelo menos uma unidade não-CP deve coincidir (o outro hospital do par)
+                const unidadeMatch =
+                    rowS.origem_norm === rowE.origem_norm ||
+                    rowS.destino_norm === rowE.destino_norm ||
+                    rowS.origem_norm === rowE.destino_norm ||
+                    rowS.destino_norm === rowE.origem_norm
+                if (!unidadeMatch) continue
+
+                // Similaridade de produto
+                const { score: scoreProduto, detalhes: detalhesProduto } = calcularSimilaridadePrecalc(
+                    rowS.comps as ComponentesProduto,
+                    rowE.comps as ComponentesProduto,
+                    false
+                )
+                if (scoreProduto < 70) continue
+
+                // Proximidade de quantidade
+                const qtdS = Number(rowS.qt_entrada || 0)
+                const qtdE = Number(rowE.qt_entrada || 0)
+                const qtdProxima = qtdS > 0 && qtdE > 0 && Math.abs(qtdS - qtdE) / Math.max(qtdS, qtdE) <= 0.15
+
+                let scoreCp = scoreProduto * 0.50 + 20 + (qtdProxima ? 20 : 0)
+
+                // Bonus: valor próximo
+                const valorS = Number(rowS.valor_total)
+                const valorE = Number(rowE.valor_total)
+                if (valorS > 0 && valorE > 0 && Math.abs(valorS - valorE) / valorS <= 0.10) {
+                    scoreCp += 5
+                }
+
+                if (scoreCp >= 60 && scoreCp > bestCpScore) {
+                    bestCpScore = scoreCp
+                    bestScore = scoreCp
+                    bestMatch = {
+                        idx: j,
+                        row: rowE,
+                        score: scoreCp,
+                        detalhesMatch: [
+                            'CP-SemDoc',
+                            `Prod:${scoreProduto}%`,
+                            'Unid:✓',
+                            qtdProxima ? 'Qtd:≈' : 'Qtd:≠',
+                        ],
+                        detalhesProduto,
+                    }
+                }
+            }
+        }
+
         if (bestMatch) {
             entradasProcessadas.add(bestMatch.idx)
             const rowE = bestMatch.row
