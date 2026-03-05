@@ -62,26 +62,23 @@ export async function POST(req: Request) {
             const isSaida = nameLow.includes('saida') || nameLow.includes('concedido') || nameLow.includes('envio');
             const isEntrada = nameLow.includes('entrada') || nameLow.includes('recebido');
 
-            // BRT = UTC-3 — Vercel roda em UTC, então precisamos marcar o fuso
-            // para que o horário do Excel (hora de Brasília) seja armazenado corretamente.
-            const BRT = '-03:00';
-            const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
+            // Armazena horário do Excel "as-is" em UTC (sem conversão de fuso).
+            // O frontend exibe com getUTCHours() para preservar o valor original.
             const parseDateExcel = (val: any) => {
                 if (!val) return new Date();
                 if (typeof val === 'number') {
-                    // Serial Excel é hora local (BRT) — ajusta para UTC
-                    return new Date(Math.round((val - 25569) * 86400 * 1000) + BRT_OFFSET_MS);
+                    return new Date(Math.round((val - 25569) * 86400 * 1000));
                 }
                 if (typeof val === 'string' && val.includes('/')) {
                     const parts = val.split(/[\s/:]+/);
                     if (parts.length >= 6) {
-                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:${parts[5]}${BRT}`);
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:${parts[5]}Z`);
                     }
                     if (parts.length >= 5) {
-                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:00${BRT}`);
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:00Z`);
                     }
                     if (parts.length >= 3) {
-                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00${BRT}`);
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00Z`);
                     }
                 }
                 const d = new Date(val);
