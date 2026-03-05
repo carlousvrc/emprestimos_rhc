@@ -28,35 +28,37 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
     try {
         const lock = await client.getMailboxLock('INBOX');
         try {
-            // Janela de busca: 2 dias para sync normal (hoje + ontem), 45 dias para force.
-            // Não depende do flag \\Seen porque o CRON e o Gmail webmail marcam emails como lidos
-            // antes do sync manual, fazendo o sistema não encontrar novos emails.
-            const dayWindow = force ? 45 : 2;
+            // Janela de busca: 7 dias para sync normal, 45 dias para force.
+            // Não depende do flag \\Seen — o CRON e o Gmail webmail marcam emails como lidos
+            // antes do sync manual, então não filtramos por seen.
+            const dayWindow = force ? 45 : 7;
             const dateStr = new Date(Date.now() - dayWindow * 24 * 60 * 60 * 1000);
-            const searchCriteria: SearchObject = { since: dateStr };
 
-            // Filtra por remetente somente se GMAIL_SENDER estiver explicitamente configurada.
+            // Busca com filtros de remetente/assunto (se configurados)
+            const searchCriteria: SearchObject = { since: dateStr };
             const senderEnv = process.env.GMAIL_SENDER || '';
             if (senderEnv) {
                 searchCriteria.from = senderEnv;
             }
-
             const subjectFilter = process.env.GMAIL_SUBJECT || '';
             if (subjectFilter) {
                 searchCriteria.subject = subjectFilter;
             }
 
-            // Find UIDs matching the criteria
-            const uidsSearch = await client.search(searchCriteria, { uid: true });
+            let uids = await searchUIDs(client, searchCriteria);
 
-            if (!uidsSearch || typeof uidsSearch === 'boolean') {
-                return []; // No emails found
+            // Fallback: se não encontrou com filtros, tenta só pela data
+            if (uids.length === 0 && (senderEnv || subjectFilter)) {
+                console.log(`[IMAP] Busca com filtros retornou 0. Tentando sem remetente/assunto...`);
+                const fallbackCriteria: SearchObject = { since: dateStr };
+                uids = await searchUIDs(client, fallbackCriteria);
+                if (uids.length > 0) {
+                    console.log(`[IMAP] Fallback encontrou ${uids.length} email(s). Verifique GMAIL_SENDER="${senderEnv}" e GMAIL_SUBJECT="${subjectFilter}".`);
+                }
             }
 
-            const uids = Array.isArray(uidsSearch) ? uidsSearch : [];
-
             if (uids.length === 0) {
-                return []; // No emails found
+                return [];
             }
 
             // Sort UIDs descending to process the newest first
@@ -95,4 +97,11 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
     }
 
     return attachmentsFound;
+}
+
+/** Helper: executa IMAP SEARCH e retorna array de UIDs */
+async function searchUIDs(client: ImapFlow, criteria: SearchObject): Promise<number[]> {
+    const result = await client.search(criteria, { uid: true });
+    if (!result || typeof result === 'boolean') return [];
+    return Array.isArray(result) ? result : [];
 }
