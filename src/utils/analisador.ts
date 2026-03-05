@@ -75,6 +75,19 @@ export const UNIDADES_INTERNAS = new Set<string>([
 ])
 
 /**
+ * Verifica se uma unidade pertence à Rede Casa.
+ * 1. Normaliza via HOSPITAL_DE_PARA (mapeia variações para nome canônico)
+ * 2. Confere no Set UNIDADES_INTERNAS
+ * 3. Fallback: verifica se o nome contém "REDE CASA" ou "HOSPITAL CASA"
+ */
+function ehUnidadeInterna(nome: string): boolean {
+    const canonico = normalizarHospital(nome)
+    if (UNIDADES_INTERNAS.has(canonico)) return true
+    // Fallback por substring — qualquer variação contendo "REDE CASA" ou "HOSPITAL CASA" é interna
+    return canonico.includes('REDE CASA') || canonico.includes('HOSPITAL CASA')
+}
+
+/**
  * Classifica uma movimentação como 'interno' ou 'externo'.
  * Interno  → ambas as unidades pertencem à Rede Casa.
  * Externo  → ao menos uma unidade é de fora da rede (requer devolução futura).
@@ -83,10 +96,7 @@ export function classificarMovimentacao(
     unidadeOrigem: string,
     unidadeDestino: string
 ): 'interno' | 'externo' {
-    const norm = (s: string) => String(s || '').toUpperCase().trim()
-    const origemInterna = UNIDADES_INTERNAS.has(norm(unidadeOrigem))
-    const destinoInterno = UNIDADES_INTERNAS.has(norm(unidadeDestino))
-    return origemInterna && destinoInterno ? 'interno' : 'externo'
+    return ehUnidadeInterna(unidadeOrigem) && ehUnidadeInterna(unidadeDestino) ? 'interno' : 'externo'
 }
 
 // ---------- Wrapper to prepare rows (mirrors preparar_dataframe) ----------
