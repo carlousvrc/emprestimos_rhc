@@ -111,6 +111,17 @@ export function prepararRows(rows: AnaliseRow[]): AnaliseRow[] {
         .filter(r => !r.unidade_origem.includes('OFTALMOCASA') && !r.unidade_destino.includes('OFTALMOCASA'))
 }
 
+/** Calcula diferença em horas entre data de saída e data de entrada (retorna 0 se inválido) */
+function calcularTempoRecebimento(dataSaida: string, dataEntrada: string): number {
+    if (!dataSaida || !dataEntrada) return 0
+    const dS = new Date(dataSaida)
+    const dE = new Date(dataEntrada)
+    if (isNaN(dS.getTime()) || isNaN(dE.getTime())) return 0
+    const diffMs = dE.getTime() - dS.getTime()
+    if (diffMs <= 0) return 0
+    return Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10 // horas com 1 decimal
+}
+
 // Analisa pares Saída/Entrada por Fuzzy Matching e retorna resultado + estatísticas
 export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow[], limiarSimilaridade = 65) {
     // Apply normalization first (mirrors preparar_dataframe)
@@ -242,7 +253,7 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
                 qtd_entrada: qtdE,
                 dif_qtd: diferencaQtd,
                 data_entrada: rowE.data,
-                tempo_recebimento: 0,
+                tempo_recebimento: calcularTempoRecebimento(rowS.data, rowE.data),
                 status: '✅ Conforme',
                 tipo_div: '-',
                 qualidade_match: '⭐⭐⭐ Excelente',
@@ -424,7 +435,7 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
                 qtd_entrada: qtdE,
                 dif_qtd: diferencaQtd,
                 data_entrada: rowE.data,
-                tempo_recebimento: 0,
+                tempo_recebimento: calcularTempoRecebimento(rowS.data, rowE.data),
                 status,
                 tipo_div: tipoDiv,
                 qualidade_match: qualidadeMatch,

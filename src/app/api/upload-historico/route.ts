@@ -31,6 +31,12 @@ function parseDateExcel(val: any): Date {
     }
     if (typeof val === 'string' && val.includes('/')) {
         const parts = val.split(/[\s/:]+/)
+        if (parts.length >= 6) {
+            return new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${parts[3]}:${parts[4]}:${parts[5]}`)
+        }
+        if (parts.length >= 5) {
+            return new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${parts[3]}:${parts[4]}:00`)
+        }
         if (parts.length >= 3) {
             return new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T00:00:00`)
         }
@@ -161,7 +167,7 @@ export async function POST(req: Request) {
         }
 
         const payload = analise.map(item => ({
-            data_transferencia: item.data ? new Date(item.data).toISOString().split('T')[0] : null,
+            data_transferencia: item.data ? new Date(item.data).toISOString() : null,
             documento: String(item.doc || ''),
             unidade_origem: String(item.origem || ''),
             unidade_destino: String(item.destino || ''),
@@ -173,7 +179,7 @@ export async function POST(req: Request) {
             valor_entrada: Number(item.val_entrada || 0),
             diferenca_financeira: Number(item.dif_val || 0),
             diferenca_quantidade: Number(item.dif_qtd || 0),
-            data_recebimento: item.data_entrada ? new Date(item.data_entrada).toISOString().split('T')[0] : null,
+            data_recebimento: item.data_entrada ? new Date(item.data_entrada).toISOString() : null,
             tempo_recebimento: Number(item.tempo_recebimento || 0),
             status_item: statusMap[item.status] ?? item.status?.toLowerCase() ?? 'pendente',
         }))

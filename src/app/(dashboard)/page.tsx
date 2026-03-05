@@ -41,6 +41,7 @@ interface ItemClinico {
   qtd_saida?: number
   qtd_entrada?: number
   diferenca_quantidade?: number
+  data_recebimento?: string
   tempo_recebimento?: number
 }
 
@@ -64,6 +65,24 @@ const parseLocalDate = (val: string | null | undefined): Date | null => {
 const formatDate = (val: string | null | undefined): string => {
   const d = parseLocalDate(val)
   return d ? d.toLocaleDateString('pt-BR') : '—'
+}
+
+const formatTime = (val: string | null | undefined): string => {
+  if (!val) return '—'
+  const d = new Date(val)
+  if (isNaN(d.getTime())) return '—'
+  const h = d.getHours()
+  const m = d.getMinutes()
+  if (h === 0 && m === 0) return '—' // sem horário registrado
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+const formatTempo = (horas: number | null | undefined): string => {
+  if (!horas || horas <= 0) return '—'
+  if (horas < 24) return `${horas}h`
+  const dias = Math.floor(horas / 24)
+  const horasRest = Math.round(horas % 24)
+  return horasRest > 0 ? `${dias}d ${horasRest}h` : `${dias}d`
 }
 
 const fetchAllItens = async (): Promise<{ itens: ItemClinico[]; lastUpdate: string }> => {
@@ -408,6 +427,9 @@ function DashboardInner() {
       'Valor Saída (R$)': item.valor_saida,
       'Valor Entrada (R$)': item.valor_entrada,
       'Diferença (R$)': (item.valor_saida || 0) - (item.valor_entrada || 0),
+      'Hora Saída': formatTime(item.data_transferencia),
+      'Hora Entrada': formatTime(item.data_recebimento),
+      'Tempo Recebimento': formatTempo(item.tempo_recebimento),
       'Status': item.status_item?.toUpperCase(),
     }))
 
@@ -820,7 +842,7 @@ function DashboardInner() {
 
         <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 overflow-hidden mb-4">
           <div className="overflow-x-auto">
-            <Table className="min-w-[800px]">
+            <Table className="min-w-[1100px]">
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="border-b border-slate-100 hover:bg-transparent">
                   <TableHead className="font-extrabold text-slate-400 py-6 px-8 text-xs uppercase tracking-widest w-[120px]">Data</TableHead>
@@ -829,13 +851,16 @@ function DashboardInner() {
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Tipo</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Documento</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Produto (Saída → Entrada)</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Saída</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Entrada</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Tempo</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-8 text-xs uppercase tracking-widest text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-20 text-center">
+                    <TableCell colSpan={10} className="py-20 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
                           <FileText size={24} className="text-slate-300" />
@@ -886,6 +911,17 @@ function DashboardInner() {
                             </span>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell className="py-5 px-3 text-center">
+                        <span className="font-mono text-xs font-bold text-slate-500">{formatTime(row.data_transferencia)}</span>
+                      </TableCell>
+                      <TableCell className="py-5 px-3 text-center">
+                        <span className="font-mono text-xs font-bold text-slate-500">{formatTime(row.data_recebimento)}</span>
+                      </TableCell>
+                      <TableCell className="py-5 px-3 text-center">
+                        <span className={`font-mono text-xs font-bold ${
+                          (row.tempo_recebimento || 0) > 48 ? 'text-red-500' : (row.tempo_recebimento || 0) > 24 ? 'text-amber-500' : 'text-emerald-600'
+                        }`}>{formatTempo(row.tempo_recebimento)}</span>
                       </TableCell>
                       <TableCell className="py-5 px-8 text-right">
                         <StatusBadge status={row.status_item} />

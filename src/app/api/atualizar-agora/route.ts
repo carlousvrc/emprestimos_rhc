@@ -69,6 +69,14 @@ export async function POST(req: Request) {
                 }
                 if (typeof val === 'string' && val.includes('/')) {
                     const parts = val.split(/[\s/:]+/);
+                    if (parts.length >= 6) {
+                        // "dd/mm/yyyy hh:mm:ss" → 6 partes com hora
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:${parts[5]}`);
+                    }
+                    if (parts.length >= 5) {
+                        // "dd/mm/yyyy hh:mm" → 5 partes
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${parts[3]}:${parts[4]}:00`);
+                    }
                     if (parts.length >= 3) {
                         return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
                     }
@@ -194,7 +202,7 @@ export async function POST(req: Request) {
 
             // Supabase Payload format
             supabaseRecords.push({
-                data_transferencia: item.data ? new Date(item.data).toISOString().split('T')[0] : null,
+                data_transferencia: item.data ? new Date(item.data).toISOString() : null,
                 documento: String(item.doc || ''),
                 unidade_origem: String(item.origem || ''),
                 unidade_destino: String(item.destino || ''),
@@ -202,7 +210,7 @@ export async function POST(req: Request) {
                 qtd_saida: Number(item.qtd_saida || 0),
                 produto_entrada: item.prod_entrada ? String(item.prod_entrada) : null,
                 qtd_entrada: Number(item.qtd_entrada || 0),
-                data_recebimento: item.data_entrada ? new Date(item.data_entrada).toISOString().split('T')[0] : null,
+                data_recebimento: item.data_entrada ? new Date(item.data_entrada).toISOString() : null,
                 status_item: String(item.status || '').toLowerCase().replace('✅ ', '').replace('❌ ', '').replace('⚠️ ', ''),
                 tempo_recebimento: Number(item.tempo_recebimento || 0),
                 valor_saida: Number(item.val_saida || 0),
