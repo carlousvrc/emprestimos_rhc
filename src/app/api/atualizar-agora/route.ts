@@ -249,19 +249,44 @@ export async function POST(req: Request) {
                 if (r.status?.includes('Recebido') || r.status?.includes('Pendente')) sumPendente += Number(r.val_saida || 0);
             })
 
-            const { error: errCons } = await supabaseAdmin.from('analises_consolidadas').insert({
+            // Deduplicação por data: evita entradas duplicadas se o sync rodar mais de uma vez no mesmo dia
+            const dataRef = primeiraDataArquivo ? primeiraDataArquivo.toISOString() : new Date().toISOString();
+            const dateKey = dataRef.split('T')[0]; // YYYY-MM-DD
+            const { data: existingCons } = await supabaseAdmin
+                .from('analises_consolidadas')
+                .select('id')
+                .gte('data_referencia_arquivos', `${dateKey}T00:00:00.000Z`)
+                .lte('data_referencia_arquivos', `${dateKey}T23:59:59.999Z`)
+                .maybeSingle();
+
+            const consolidadoPayload = {
                 itens_analisados: analise.length,
                 itens_conformes: stats.conformes,
                 itens_nao_conformes: stats.nao_conformes,
                 itens_pendentes: stats.nao_encontrados,
                 divergencia_quantidade: stats.qtd_divergente,
-                entradas_inferiores: 0, // Placeholder
+                entradas_inferiores: 0,
                 total_saida: sumSaida,
                 total_entrada: sumEntrada,
                 total_pendente: sumPendente,
                 total_divergencia: sumDivergente,
-                data_referencia_arquivos: primeiraDataArquivo ? primeiraDataArquivo.toISOString() : new Date().toISOString()
-            })
+                data_referencia_arquivos: dataRef
+            };
+
+            let errCons;
+            if (existingCons?.id) {
+                // Atualiza o registro existente para a mesma data
+                ({ error: errCons } = await supabaseAdmin
+                    .from('analises_consolidadas')
+                    .update(consolidadoPayload)
+                    .eq('id', existingCons.id));
+                console.log(`✅ analises_consolidadas atualizado (id=${existingCons.id}) para ${dateKey}`);
+            } else {
+                ({ error: errCons } = await supabaseAdmin
+                    .from('analises_consolidadas')
+                    .insert(consolidadoPayload));
+                console.log(`✅ analises_consolidadas inserido para ${dateKey}`);
+            }
             if (errCons) throw new Error(`Falha ao salvar analises_consolidadas no Supabase: ${errCons.message}`);
         }
 

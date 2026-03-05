@@ -28,21 +28,17 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
     try {
         const lock = await client.getMailboxLock('INBOX');
         try {
-            // Busca emails nos últimos 45 dias
-            const dateStr = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
+            // Janela de busca: 2 dias para sync normal (hoje + ontem), 45 dias para force.
+            // Não depende do flag \\Seen porque o CRON e o Gmail webmail marcam emails como lidos
+            // antes do sync manual, fazendo o sistema não encontrar novos emails.
+            const dayWindow = force ? 45 : 2;
+            const dateStr = new Date(Date.now() - dayWindow * 24 * 60 * 60 * 1000);
             const searchCriteria: SearchObject = { since: dateStr };
 
             // Filtra por remetente somente se GMAIL_SENDER estiver explicitamente configurada.
-            // Se não estiver (ou usar o placeholder padrão), busca todos os remetentes para não
-            // bloquear a sincronização por uma variável de ambiente mal configurada.
             const senderEnv = process.env.GMAIL_SENDER || '';
             if (senderEnv) {
                 searchCriteria.from = senderEnv;
-            }
-
-            // Only filter for unseen if not forcing a resync
-            if (!force) {
-                searchCriteria.seen = false;
             }
 
             const subjectFilter = process.env.GMAIL_SUBJECT || '';
