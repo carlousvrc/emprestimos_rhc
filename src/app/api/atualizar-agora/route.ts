@@ -99,10 +99,39 @@ export async function POST(req: Request) {
                 return parseFloat(s) || 0;
             };
 
+            // Log colunas do primeiro registro para debug
+            if (jsonData.length > 0) {
+                console.log(`[Excel] Colunas encontradas: ${Object.keys(jsonData[0]).join(', ')}`);
+                const sample = jsonData[0];
+                console.log(`[Excel] Amostra → Data/Hora: ${sample['Data/Hora']}, Data: ${sample['Data']}, Hora: ${sample['Hora']}`);
+            }
+
             for (const row of jsonData) {
-                // Mapeamento flexível de colunas — tenta múltiplas variações de nome
-                // Colunas esperadas: Data, Unidade Origem, Unidade Destino, Documento, Ds Produto, Total, Qt Entrada
-                const dataPura = row['Data'] || row['DATA'] || row['Data/Hora'] || row['data'];
+                // Mapeamento flexível de colunas — prioriza "Data/Hora" (datetime completo)
+                // sobre "Data" (pode ser date-only). Se existir coluna "Hora" separada, combina.
+                let dataPura = row['Data/Hora'] || row['DATA/HORA'] || row['Data'] || row['DATA'] || row['data'];
+                const horaPura = row['Hora'] || row['HORA'] || row['hora'] || row['Time'];
+
+                // Combina data + hora separados (ex: Data=46084, Hora=0.77 ou Hora="18:30")
+                if (horaPura != null && dataPura != null) {
+                    if (typeof dataPura === 'number' && typeof horaPura === 'number') {
+                        // Ambos seriais Excel — soma a fração de hora ao dia
+                        dataPura = dataPura + horaPura;
+                    } else if (typeof dataPura === 'number' && typeof horaPura === 'string') {
+                        // Data numérica + Hora string "HH:MM" ou "HH:MM:SS"
+                        const hParts = String(horaPura).split(':');
+                        if (hParts.length >= 2) {
+                            const frac = (parseInt(hParts[0]) * 3600 + parseInt(hParts[1] || '0') * 60 + parseInt(hParts[2] || '0')) / 86400;
+                            dataPura = dataPura + frac;
+                        }
+                    } else if (typeof dataPura === 'string' && typeof horaPura === 'string') {
+                        // Ambos strings — concatena se a data não tem hora
+                        if (!dataPura.includes(':')) {
+                            dataPura = `${dataPura} ${horaPura}`;
+                        }
+                    }
+                }
+
                 const dataFormatada = parseDateExcel(dataPura);
 
                 if (!primeiraDataArquivo) primeiraDataArquivo = dataFormatada;

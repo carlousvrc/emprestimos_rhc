@@ -59,12 +59,30 @@ function classificarArquivo(filename: string): 'saida' | 'entrada' | 'ambiguo' {
     return 'ambiguo'
 }
 
+// Combina data + hora separados (mesma lógica do atualizar-agora)
+function obterDataHora(row: any): any {
+    let dataPura = row['Data/Hora'] || row['DATA/HORA'] || row['Data'] || row['DATA'] || row['data']
+    const horaPura = row['Hora'] || row['HORA'] || row['hora'] || row['Time']
+    if (horaPura != null && dataPura != null) {
+        if (typeof dataPura === 'number' && typeof horaPura === 'number') {
+            dataPura = dataPura + horaPura
+        } else if (typeof dataPura === 'number' && typeof horaPura === 'string') {
+            const hParts = String(horaPura).split(':')
+            if (hParts.length >= 2) {
+                const frac = (parseInt(hParts[0]) * 3600 + parseInt(hParts[1] || '0') * 60 + parseInt(hParts[2] || '0')) / 86400
+                dataPura = dataPura + frac
+            }
+        } else if (typeof dataPura === 'string' && typeof horaPura === 'string') {
+            if (!dataPura.includes(':')) dataPura = `${dataPura} ${horaPura}`
+        }
+    }
+    return dataPura
+}
+
 // Mapeia uma linha do Excel para AnaliseRow (mesma lógica do atualizar-agora)
 function rowToAnaliseRow(row: any): AnaliseRow {
     return {
-        data: parseDateExcel(
-            row['Data'] || row['DATA'] || row['Data/Hora'] || row['data']
-        ).toISOString(),
+        data: parseDateExcel(obterDataHora(row)).toISOString(),
         unidade_origem: String(row['Unidade Origem'] || row['unidade_origem'] || row['Origem'] || ''),
         unidade_destino: String(row['Unidade Destino'] || row['unidade_destino'] || row['Destino'] || ''),
         documento: String(row['Documento'] || row['Nro Doc'] || row['documento'] || ''),
