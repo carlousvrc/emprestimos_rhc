@@ -146,7 +146,7 @@ const syncEmails = async (force = false): Promise<string> => {
 
 // ─── Lógica de filtragem e paginação ──────────────────────────────────────────
 
-const PERIODOS = ['Todo o Período', 'Mês Atual', 'Mês Anterior', 'Últimos 3 Meses'] as const
+const PERIODOS = ['Todo o Período', 'Mês Atual', 'Mês Anterior', 'Últimos 3 Meses', 'Personalizado'] as const
 const PAGE_SIZES = [25, 50, 100, 200]
 
 function applyFilters(
@@ -154,11 +154,27 @@ function applyFilters(
   periodo: string,
   statusFilter: string[],
   unidadeFilter: string[],
-  tipoFilter: string
+  tipoFilter: string,
+  dataInicio: string,
+  dataFim: string
 ): ItemClinico[] {
   let result = items
 
-  if (periodo !== 'Todo o Período') {
+  if (periodo === 'Personalizado') {
+    const inicio = dataInicio ? new Date(dataInicio + 'T00:00:00') : null
+    const fim = dataFim ? new Date(dataFim + 'T23:59:59') : null
+    if (inicio || fim) {
+      result = result.filter(item => {
+        const raw = item.data_transferencia
+        if (!raw) return false
+        const d = new Date(String(raw).substring(0, 10) + 'T12:00:00')
+        if (isNaN(d.getTime())) return false
+        if (inicio && d < inicio) return false
+        if (fim && d > fim) return false
+        return true
+      })
+    }
+  } else if (periodo !== 'Todo o Período') {
     const hoje = new Date()
     const mesAtual = hoje.getMonth()
     const anoAtual = hoje.getFullYear()
@@ -166,8 +182,6 @@ function applyFilters(
     result = result.filter(item => {
       const raw = item.data_transferencia
       if (!raw) return false
-      // Extrai YYYY-MM-DD dos primeiros 10 chars + T12:00:00 (imune ao UTC offset).
-      // Funciona para "2026-03-01" (novo) e "2026-03-01T00:00:00.000Z" (legado UTC midnight).
       const d = new Date(String(raw).substring(0, 10) + 'T12:00:00')
       if (isNaN(d.getTime())) return false
       const mes = d.getMonth()
@@ -287,6 +301,8 @@ function DashboardInner() {
   // ── URL State (nuqs) ──
   const [filters, setFilters] = useQueryStates({
     periodo: parseAsString.withDefault('Todo o Período'),
+    dataInicio: parseAsString.withDefault(''),
+    dataFim: parseAsString.withDefault(''),
     status: parseAsArrayOf(parseAsString).withDefault([]),
     unidade: parseAsArrayOf(parseAsString).withDefault([]),
     tipo: parseAsString.withDefault('Todos'),
@@ -294,7 +310,7 @@ function DashboardInner() {
     pageSize: parseAsInteger.withDefault(50),
   })
 
-  const { periodo, status: statusFilter, unidade: unidadeFilter, tipo: tipoFilter, page, pageSize } = filters
+  const { periodo, dataInicio, dataFim, status: statusFilter, unidade: unidadeFilter, tipo: tipoFilter, page, pageSize } = filters
 
   // ── Data Fetching (TanStack Query) ──
   const { data, isLoading, isError } = useQuery({
@@ -337,8 +353,8 @@ function DashboardInner() {
 
   // ── Computed Data ──
   const filteredData = useMemo(
-    () => applyFilters(rawItens, periodo, statusFilter, unidadeFilter, tipoFilter),
-    [rawItens, periodo, statusFilter, unidadeFilter, tipoFilter]
+    () => applyFilters(rawItens, periodo, statusFilter, unidadeFilter, tipoFilter, dataInicio, dataFim),
+    [rawItens, periodo, statusFilter, unidadeFilter, tipoFilter, dataInicio, dataFim]
   )
 
   const metrics = useMemo(() => computeMetrics(filteredData), [filteredData])
@@ -406,15 +422,17 @@ function DashboardInner() {
     statusFilter.length > 0 ||
     unidadeFilter.length > 0 ||
     tipoFilter !== 'Todos' ||
-    periodo !== 'Todo o Período'
+    periodo !== 'Todo o Período' ||
+    dataInicio !== '' ||
+    dataFim !== ''
 
   const setPage = (p: number) => setFilters({ page: p })
   const setPageSize = (s: number) => setFilters({ pageSize: s, page: 1 })
-  const setPeriodo = (p: string) => setFilters({ periodo: p, page: 1 })
+  const setPeriodo = (p: string) => setFilters({ periodo: p, dataInicio: p !== 'Personalizado' ? '' : dataInicio, dataFim: p !== 'Personalizado' ? '' : dataFim, page: 1 })
   const setStatusFilter = (s: string[]) => setFilters({ status: s, page: 1 })
   const setUnidadeFilter = (u: string[]) => setFilters({ unidade: u, page: 1 })
   const setTipoFilter = (t: string) => setFilters({ tipo: t, page: 1 })
-  const clearAllFilters = () => setFilters({ status: [], unidade: [], tipo: 'Todos', periodo: 'Todo o Período', page: 1 })
+  const clearAllFilters = () => setFilters({ status: [], unidade: [], tipo: 'Todos', periodo: 'Todo o Período', dataInicio: '', dataFim: '', page: 1 })
 
   // ── Export ──
   const exportToExcel = () => {
@@ -562,6 +580,23 @@ function DashboardInner() {
               {p}
             </button>
           ))}
+          {periodo === 'Personalizado' && (
+            <div className="flex items-center gap-2 border-l border-slate-100 pl-3 ml-1">
+              <input
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setFilters({ dataInicio: e.target.value, page: 1 })}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-[#001A72] bg-white focus:outline-none focus:ring-2 focus:ring-[#001A72]/20 focus:border-[#001A72]/30"
+              />
+              <span className="text-slate-400 text-xs font-bold">até</span>
+              <input
+                type="date"
+                value={dataFim}
+                onChange={(e) => setFilters({ dataFim: e.target.value, page: 1 })}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-[#001A72] bg-white focus:outline-none focus:ring-2 focus:ring-[#001A72]/20 focus:border-[#001A72]/30"
+              />
+            </div>
+          )}
         </div>
 
         <div className="w-full xl:w-auto flex flex-col sm:flex-row items-center gap-3 bg-white/90 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100">
