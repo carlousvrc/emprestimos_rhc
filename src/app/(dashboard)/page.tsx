@@ -5,12 +5,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { parseAsString, parseAsArrayOf, parseAsInteger, useQueryStates } from 'nuqs'
 import { toast } from 'sonner'
 import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  AreaChart, Area, CartesianGrid
 } from 'recharts'
 import {
   Download, RefreshCw, Info, Activity, AlertCircle, FileText,
   TrendingUp, Sparkles, Filter, Loader2, Calendar as CalendarIcon,
-  Clock, Inbox, ChevronLeft, ChevronRight
+  Clock, Inbox, ChevronLeft, ChevronRight, ArrowLeftRight
 } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { classificarMovimentacao } from '@/utils/analisador'
@@ -225,6 +226,7 @@ function computeMetrics(filteredData: ItemClinico[]) {
   let tSaida = 0, tEntrada = 0, tPendente = 0, tDivergencia = 0
   let iConf = 0, iNConf = 0, iPend = 0
   let entradasInf = 0, somaTempos = 0, countTempos = 0, divQtd = 0
+  let crossPeriodCount = 0
 
   filteredData.forEach(item => {
     const vS = item.valor_saida != null ? Number(item.valor_saida) : null
@@ -255,7 +257,21 @@ function computeMetrics(filteredData: ItemClinico[]) {
       tDivergencia += Math.abs(dif)
       divQtd += Math.abs(Number(item.diferenca_quantidade || 0))
     }
+
+    // Cross-period detection
+    if (item.data_recebimento) {
+      const dTransf = parseLocalDate(item.data_transferencia)
+      const dReceb = parseLocalDate(item.data_recebimento)
+      if (dTransf && dReceb) {
+        if (dTransf.getMonth() !== dReceb.getMonth() || dTransf.getFullYear() !== dReceb.getFullYear()) {
+          crossPeriodCount++
+        }
+      }
+    }
   })
+
+  const saldo = tSaida - tEntrada
+  const taxaRecuperacao = tSaida > 0 ? (tEntrada / tSaida) * 100 : 0
 
   return {
     totalSaida: tSaida,
@@ -269,6 +285,9 @@ function computeMetrics(filteredData: ItemClinico[]) {
     entradasInferiores: entradasInf,
     divergenciaQuantidade: divQtd,
     tempoMedio: countTempos > 0 ? Math.round(somaTempos / countTempos) : 0,
+    taxaRecuperacao,
+    saldo,
+    crossPeriodCount,
   }
 }
 
@@ -291,6 +310,26 @@ function TipoBadge({ tipo }: { tipo?: 'interno' | 'externo' }) {
   if (tipo === 'externo')
     return <span className="inline-flex text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Externo ↩</span>
   return <span className="inline-flex text-[#001A72] bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Interno</span>
+}
+
+// ─── Cross-period helper ──────────────────────────────────────────────────────
+
+function isCrossPeriod(item: ItemClinico): boolean {
+  if (!item.data_recebimento) return false
+  const dTransf = parseLocalDate(item.data_transferencia)
+  const dReceb = parseLocalDate(item.data_recebimento)
+  if (!dTransf || !dReceb) return false
+  return dTransf.getMonth() !== dReceb.getMonth() || dTransf.getFullYear() !== dReceb.getFullYear()
+}
+
+// ─── Row background by status ────────────────────────────────────────────────
+
+function getRowBg(status: string): string {
+  const s = (status || '').toLowerCase()
+  if (s.includes('não conforme') || s.includes('divergente')) return 'bg-red-50/50'
+  if (s.includes('não recebido') || s === 'pendente') return 'bg-orange-50/40'
+  if (s === 'conforme') return 'bg-emerald-50/30'
+  return ''
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -359,6 +398,17 @@ function DashboardInner() {
 
   const metrics = useMemo(() => computeMetrics(filteredData), [filteredData])
 
+  // ── Cross-period items ──
+  const crossPeriodItems = useMemo(
+    () => filteredData.filter(item => isCrossPeriod(item)),
+    [filteredData]
+  )
+
+  const crossPeriodTotalValue = useMemo(
+    () => crossPeriodItems.reduce((acc, item) => acc + (Number(item.valor_saida) || 0), 0),
+    [crossPeriodItems]
+  )
+
   const periodoApurado = useMemo(() => {
     const datas = filteredData
       .map(i => parseLocalDate(i.data_transferencia))
@@ -408,6 +458,26 @@ function DashboardInner() {
     return rankings.length > 0 ? rankings : [{ name: 'Nenhuma', value: 0 }]
   }, [filteredData])
 
+  // ── Monthly evolution data for AreaChart ──
+  const monthlyEvolutionData = useMemo(() => {
+    const monthMap: Record<string, number> = {}
+    filteredData.forEach(item => {
+      const d = parseLocalDate(item.data_transferencia)
+      if (!d) return
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      monthMap[key] = (monthMap[key] || 0) + 1
+    })
+    return Object.keys(monthMap)
+      .sort()
+      .map(key => {
+        const [year, month] = key.split('-')
+        return {
+          mes: `${month}/${year}`,
+          quantidade: monthMap[key],
+        }
+      })
+  }, [filteredData])
+
   // ── Pagination ──
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize))
   const safePage = Math.min(page, totalPages)
@@ -442,30 +512,47 @@ function DashboardInner() {
       'Unidade Destino': item.unidade_destino,
       'Tipo': item.tipo_movimentacao === 'externo' ? 'Externo' : 'Interno',
       'Documento': item.documento,
-      'Produto (Saída)': item.produto_saida,
+      'Produto (Saida)': item.produto_saida,
       'Produto (Entrada)': item.produto_entrada || '-',
-      'Valor Saída (R$)': item.valor_saida,
+      'Valor Saida (R$)': item.valor_saida,
       'Valor Entrada (R$)': item.valor_entrada,
-      'Diferença (R$)': (item.valor_saida || 0) - (item.valor_entrada || 0),
-      'Hora Saída': formatTime(item.data_transferencia),
+      'Diferenca (R$)': (item.valor_saida || 0) - (item.valor_entrada || 0),
+      'Hora Saida': formatTime(item.data_transferencia),
       'Hora Entrada': formatTime(item.data_recebimento),
       'Tempo Recebimento': formatTempo(item.tempo_recebimento),
       'Status': item.status_item?.toUpperCase(),
     }))
 
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(flatData), 'Análise Filtrada')
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(flatData), 'Analise Filtrada')
 
     const ncData = flatData.filter(
-      i => i['Status']?.includes('NÃO CONFORME') || i['Status']?.includes('DIVERGENTE')
+      i => i['Status']?.includes('NAO CONFORME') || i['Status']?.includes('DIVERGENTE')
     )
     if (ncData.length > 0) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ncData), 'Não Conformes')
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ncData), 'Nao Conformes')
     }
 
     const confData = flatData.filter(i => i['Status'] === 'CONFORME')
     if (confData.length > 0) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(confData), 'Conformes')
+    }
+
+    // Cross-period items sheet
+    if (crossPeriodItems.length > 0) {
+      const cpData = crossPeriodItems.map(item => ({
+        'Data Saida': formatDate(item.data_transferencia),
+        'Data Entrada': formatDate(item.data_recebimento),
+        'Unidade Origem': item.unidade_origem,
+        'Unidade Destino': item.unidade_destino,
+        'Documento': item.documento,
+        'Produto (Saida)': item.produto_saida,
+        'Produto (Entrada)': item.produto_entrada || '-',
+        'Valor Saida (R$)': item.valor_saida,
+        'Valor Entrada (R$)': item.valor_entrada,
+        'Status': item.status_item?.toUpperCase(),
+      }))
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cpData), 'Entre Periodos')
     }
 
     const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
@@ -514,22 +601,22 @@ function DashboardInner() {
 
         <div className="relative z-10 flex flex-col gap-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-xs font-bold tracking-widest uppercase mb-2 w-fit">
-            <Sparkles size={14} className="text-[#E87722]" /> Visão Geral
+            <Sparkles size={14} className="text-[#E87722]" /> Visao Geral
           </div>
           <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight leading-tight">
-            Transferências <span className="text-[#E87722]">Via Empréstimo</span>
+            Transferencias <span className="text-[#E87722]">Via Emprestimo</span>
           </h1>
           <p className="text-white/70 text-sm md:text-base font-medium max-w-xl mt-2 leading-relaxed">
             Mapeamento Interativo com Filtros. Analisando{' '}
             <strong className="text-white bg-white/20 px-2 py-0.5 rounded-md">
               {filteredData.length} registros
             </strong>{' '}
-            de transferências entre unidades.
+            de transferencias entre unidades.
           </p>
           {periodoApurado && (
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-white/80 text-xs font-bold mt-2 w-fit">
               <CalendarIcon size={13} className="text-[#E87722]" />
-              Período Apurado: <span className="text-white">{periodoApurado}</span>
+              Periodo Apurado: <span className="text-white">{periodoApurado}</span>
             </div>
           )}
         </div>
@@ -556,39 +643,45 @@ function DashboardInner() {
             {isForceSyncing ? 'Reprocessando...' : 'Reprocessar email lido'}
           </button>
           <div className="flex items-center gap-2 text-white/60 text-xs font-bold bg-black/10 px-4 py-2 rounded-xl backdrop-blur-sm">
-            <Info size={14} /> Última atualização: {lastUpdate || 'agora'} (Brasília)
+            <Info size={14} /> Ultima atualizacao: {lastUpdate || 'agora'} (Brasilia)
           </div>
         </div>
       </div>
 
-      {/* 2. Filters */}
-      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 -mt-8 md:-mt-12 relative z-20 px-4">
-        <div className="w-full xl:w-auto bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 flex flex-wrap gap-2">
-          <div className="hidden sm:flex items-center justify-center px-4 text-slate-300 border-r border-slate-100 mr-2">
-            <CalendarIcon size={18} />
+      {/* 2. Filters - Unified Card */}
+      <div className="-mt-8 md:-mt-12 relative z-20 px-4">
+        <div className="w-full bg-white/90 backdrop-blur-xl p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 flex flex-col gap-3">
+          {/* Period pills */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden sm:flex items-center justify-center px-3 text-slate-300 border-r border-slate-100 mr-1">
+              <CalendarIcon size={18} />
+            </div>
+            {PERIODOS.map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriodo(p)}
+                className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${
+                  periodo === p
+                    ? 'bg-[#001A72] text-white shadow-md'
+                    : 'bg-transparent text-slate-500 hover:bg-slate-100/50 hover:text-[#001A72]'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
           </div>
-          {PERIODOS.map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriodo(p)}
-              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${
-                periodo === p
-                  ? 'bg-[#001A72] text-white shadow-md'
-                  : 'bg-transparent text-slate-500 hover:bg-slate-100/50 hover:text-[#001A72]'
-              }`}
-            >
-              {p}
-            </button>
-          ))}
+
+          {/* Custom date inputs row */}
           {periodo === 'Personalizado' && (
-            <div className="flex items-center gap-2 border-l border-slate-100 pl-3 ml-1">
+            <div className="flex items-center gap-2 pl-2 pt-1 pb-1 border-t border-slate-100">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mr-2">Intervalo:</span>
               <input
                 type="date"
                 value={dataInicio}
                 onChange={(e) => setFilters({ dataInicio: e.target.value, page: 1 })}
                 className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-[#001A72] bg-white focus:outline-none focus:ring-2 focus:ring-[#001A72]/20 focus:border-[#001A72]/30"
               />
-              <span className="text-slate-400 text-xs font-bold">até</span>
+              <span className="text-slate-400 text-xs font-bold">ate</span>
               <input
                 type="date"
                 value={dataFim}
@@ -597,53 +690,57 @@ function DashboardInner() {
               />
             </div>
           )}
-        </div>
 
-        <div className="w-full xl:w-auto flex flex-col sm:flex-row items-center gap-3 bg-white/90 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100">
-          <div className="flex items-center gap-2 text-[#E87722] font-black text-xs uppercase tracking-widest px-2 min-w-[max-content]">
-            <Filter size={16} /> Filtros
-          </div>
-          <div className="w-full sm:w-[220px]">
-            <MultiSelect
-              options={availableStatuses}
-              selected={statusFilter}
-              onChange={setStatusFilter}
-              placeholder="Status da Análise..."
-            />
-          </div>
-          <div className="w-full sm:w-[260px]">
-            <MultiSelect
-              options={availableUnits}
-              selected={unidadeFilter}
-              onChange={setUnidadeFilter}
-              placeholder="Buscar Hospitais..."
-            />
-          </div>
-          <div className="flex items-center gap-1 border-l border-slate-100 pl-3">
-            {(['Todos', 'interno', 'externo'] as const).map(t => (
+          {/* Visual separator */}
+          <div className="border-t border-slate-100" />
+
+          {/* Filter controls */}
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex items-center gap-2 text-[#E87722] font-black text-xs uppercase tracking-widest px-2 min-w-[max-content]">
+              <Filter size={16} /> Filtros
+            </div>
+            <div className="w-full sm:w-[220px]">
+              <MultiSelect
+                options={availableStatuses}
+                selected={statusFilter}
+                onChange={setStatusFilter}
+                placeholder="Status da Analise..."
+              />
+            </div>
+            <div className="w-full sm:w-[260px]">
+              <MultiSelect
+                options={availableUnits}
+                selected={unidadeFilter}
+                onChange={setUnidadeFilter}
+                placeholder="Buscar Hospitais..."
+              />
+            </div>
+            <div className="flex items-center gap-1 border-l border-slate-100 pl-3">
+              {(['Todos', 'interno', 'externo'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTipoFilter(t)}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 ${
+                    tipoFilter === t
+                      ? t === 'externo'
+                        ? 'bg-amber-500 text-white shadow-md'
+                        : 'bg-[#001A72] text-white shadow-md'
+                      : 'bg-transparent text-slate-500 hover:bg-slate-100/50 hover:text-[#001A72]'
+                  }`}
+                >
+                  {t === 'Todos' ? 'Todos' : t === 'interno' ? 'Internos' : 'Externos'}
+                </button>
+              ))}
+            </div>
+            {hasActiveFilters && (
               <button
-                key={t}
-                onClick={() => setTipoFilter(t)}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 ${
-                  tipoFilter === t
-                    ? t === 'externo'
-                      ? 'bg-amber-500 text-white shadow-md'
-                      : 'bg-[#001A72] text-white shadow-md'
-                    : 'bg-transparent text-slate-500 hover:bg-slate-100/50 hover:text-[#001A72]'
-                }`}
+                onClick={clearAllFilters}
+                className="px-4 py-2 rounded-xl text-xs font-black text-red-500 hover:bg-red-50 border border-red-200 transition-all duration-200 whitespace-nowrap"
               >
-                {t === 'Todos' ? 'Todos' : t === 'interno' ? 'Internos' : 'Externos'}
+                Limpar Filtros
               </button>
-            ))}
+            )}
           </div>
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="px-4 py-2 rounded-xl text-xs font-black text-red-500 hover:bg-red-50 border border-red-200 transition-all duration-200 whitespace-nowrap"
-            >
-              ✕ Limpar Filtros
-            </button>
-          )}
         </div>
       </div>
 
@@ -652,14 +749,15 @@ function DashboardInner() {
         <div className="flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-6 py-4 text-amber-800 font-bold text-sm -mt-4 md:-mt-8 relative z-10 mx-4">
           <AlertCircle size={18} className="text-amber-500 shrink-0" />
           <span>
-            <strong>{externosCount}</strong> {externosCount === 1 ? 'movimentação externa identificada' : 'movimentações externas identificadas'} —{' '}
+            <strong>{externosCount}</strong> {externosCount === 1 ? 'movimentacao externa identificada' : 'movimentacoes externas identificadas'} —{' '}
             {externosCount === 1 ? 'material' : 'materiais'} de outros hospitais que precisam ser devolvidos.
           </span>
         </div>
       )}
 
-      {/* 3. Financial KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 3. Financial KPIs - 5 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Total Enviado */}
         <div className="bg-white rounded-[1.5rem] p-4 sm:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-2">
           <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <TrendingUp size={20} strokeWidth={2.5} />
@@ -672,6 +770,7 @@ function DashboardInner() {
           </div>
         </div>
 
+        {/* Total Recebido + recovery rate */}
         <div className="bg-white rounded-[1.5rem] p-4 sm:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-2">
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <Inbox size={20} strokeWidth={2.5} className="scale-y-[-1]" />
@@ -681,9 +780,39 @@ function DashboardInner() {
             <h3 className="text-xl lg:text-2xl font-black text-[#001A72] tracking-tight truncate" title={formatCurrency(metrics.totalEntrada)}>
               {formatCurrency(metrics.totalEntrada)}
             </h3>
+            <p className="text-[10px] font-bold text-emerald-600 mt-1">
+              Taxa de recuperacao: {metrics.taxaRecuperacao.toFixed(1)}%
+            </p>
           </div>
         </div>
 
+        {/* Saldo */}
+        <div className={`rounded-[1.5rem] p-4 sm:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-2 ${
+          metrics.saldo <= 0
+            ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/30 border-emerald-100'
+            : 'bg-gradient-to-br from-red-50 to-red-100/30 border-red-100'
+        }`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            metrics.saldo <= 0 ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
+          }`}>
+            <ArrowLeftRight size={20} strokeWidth={2.5} />
+          </div>
+          <div className="mt-2">
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${
+              metrics.saldo <= 0 ? 'text-emerald-900/60' : 'text-red-900/60'
+            }`}>Saldo</p>
+            <h3 className={`text-xl lg:text-2xl font-black tracking-tight truncate ${
+              metrics.saldo <= 0 ? 'text-emerald-700' : 'text-red-700'
+            }`} title={formatCurrency(Math.abs(metrics.saldo))}>
+              {metrics.saldo <= 0 ? '-' : '+'}{formatCurrency(Math.abs(metrics.saldo))}
+            </h3>
+            <p className={`text-[10px] font-bold mt-1 ${metrics.saldo <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {metrics.saldo <= 0 ? 'Recuperacao maior que saida' : 'Valor ainda pendente de retorno'}
+            </p>
+          </div>
+        </div>
+
+        {/* Valores Pendentes */}
         <div className="bg-gradient-to-br from-orange-50 to-orange-100/30 rounded-[1.5rem] p-4 sm:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-orange-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-2 relative overflow-hidden">
           <div className="absolute right-0 top-0 w-24 h-24 bg-orange-200/50 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
           <div className="w-10 h-10 rounded-xl bg-[#E87722] text-white flex items-center justify-center relative z-10 shadow-md shadow-orange-500/20">
@@ -702,13 +831,14 @@ function DashboardInner() {
           </div>
         </div>
 
+        {/* Divergencias */}
         <div className="bg-gradient-to-br from-red-50 to-red-100/30 rounded-[1.5rem] p-4 sm:p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-red-100 hover:-translate-y-1 transition-transform duration-300 flex flex-col gap-2 relative overflow-hidden">
           <div className="absolute right-0 top-0 w-24 h-24 bg-red-200/50 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
           <div className="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center relative z-10 shadow-md shadow-red-500/20">
             <AlertCircle size={20} strokeWidth={2.5} />
           </div>
           <div className="relative z-10 mt-2 flex-1">
-            <p className="text-red-900/60 text-[10px] font-black uppercase tracking-widest mb-1">Divergências</p>
+            <p className="text-red-900/60 text-[10px] font-black uppercase tracking-widest mb-1">Divergencias</p>
             <h3 className="text-xl lg:text-2xl font-black text-red-950 tracking-tight truncate" title={formatCurrency(metrics.divergencias)}>
               {formatCurrency(metrics.divergencias)}
             </h3>
@@ -748,7 +878,7 @@ function DashboardInner() {
             <p className="text-4xl font-black text-red-600">{metrics.naoConformes.toLocaleString('pt-BR')}</p>
           </div>
           <div className="bg-[#fff7ed] p-6 rounded-3xl border border-orange-100 flex flex-col justify-center items-center text-center col-span-2">
-            <p className="text-orange-900/60 text-xs font-black uppercase tracking-widest">Não Recebidos</p>
+            <p className="text-orange-900/60 text-xs font-black uppercase tracking-widest">Nao Recebidos</p>
             <p className="text-3xl font-black text-[#85400d]">{metrics.itensPendentes.toLocaleString('pt-BR')}</p>
           </div>
         </div>
@@ -763,10 +893,16 @@ function DashboardInner() {
             <span className="text-xs font-bold text-white/50 uppercase tracking-widest">Qtd. Divergente</span>
             <span className="text-2xl font-black">{metrics.divergenciaQuantidade}</span>
           </div>
+          <div className="flex items-center justify-between border-b border-white/10 py-4 relative z-10">
+            <span className="text-xs font-bold text-purple-300 uppercase tracking-widest flex items-center gap-1.5">
+              <ArrowLeftRight size={13} /> Entre Periodos
+            </span>
+            <span className="text-2xl font-black text-purple-300">{metrics.crossPeriodCount}</span>
+          </div>
           <div className="flex items-center justify-between pt-4 relative z-10">
-            <span className="text-xs font-bold text-[#E87722] uppercase tracking-widest">Tempo Médio</span>
+            <span className="text-xs font-bold text-[#E87722] uppercase tracking-widest">Tempo Medio</span>
             <span className="text-3xl font-black text-[#E87722]">
-              {metrics.tempoMedio}<span className="text-lg font-bold text-[#E87722]/60">H</span>
+              {formatTempo(metrics.tempoMedio) !== '—' ? formatTempo(metrics.tempoMedio) : '0h'}
             </span>
           </div>
         </div>
@@ -776,8 +912,8 @@ function DashboardInner() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
         <div className="lg:col-span-2 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 p-8 flex flex-col">
           <div className="mb-8">
-            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Eficácia (Aplicando Filtros)</h3>
-            <p className="text-sm font-semibold text-slate-400 mt-1">Distribuição de status dos registros analisados</p>
+            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Eficacia (Aplicando Filtros)</h3>
+            <p className="text-sm font-semibold text-slate-400 mt-1">Distribuicao de status dos registros analisados</p>
           </div>
           <div className="flex-1 w-full min-h-[250px] relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -830,8 +966,8 @@ function DashboardInner() {
 
         <div className="lg:col-span-3 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 p-8 flex flex-col">
           <div className="mb-8">
-            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Hospitais Críticos</h3>
-            <p className="text-sm font-semibold text-slate-400 mt-1">Top 5 unidades com mais divergências nos envios</p>
+            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Hospitais Criticos</h3>
+            <p className="text-sm font-semibold text-slate-400 mt-1">Top 5 unidades com mais divergencias nos envios</p>
           </div>
           <div className="flex-1 w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -842,7 +978,7 @@ function DashboardInner() {
                   cursor={{ fill: '#F1F5F9', radius: 12 } as object}
                   contentStyle={{ borderRadius: '16px', border: 'none', padding: '16px', boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.15)' }}
                   itemStyle={{ color: '#E87722', fontWeight: 900, fontSize: '16px' }}
-                  formatter={(value: number | undefined) => [`${value ?? 0} divergências`, '']}
+                  formatter={(value: number | undefined) => [`${value ?? 0} divergencias`, '']}
                   labelFormatter={(label: unknown) => `Hospital ${label}`}
                 />
                 <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={28}>
@@ -854,6 +990,156 @@ function DashboardInner() {
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
+
+      {/* Monthly Evolution Area Chart */}
+      {monthlyEvolutionData.length > 1 && (
+        <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 p-8 flex flex-col">
+          <div className="mb-8">
+            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Evolucao Mensal de Movimentacoes</h3>
+            <p className="text-sm font-semibold text-slate-400 mt-1">Volume de registros agrupados por mes</p>
+          </div>
+          <div className="w-full min-h-[280px]">
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={monthlyEvolutionData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradientArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#001A72" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#001A72" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="mes"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '16px', border: 'none', padding: '16px',
+                    boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.15)',
+                    backgroundColor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
+                  }}
+                  itemStyle={{ color: '#001A72', fontWeight: 900, fontSize: '15px' }}
+                  formatter={(value: number | undefined) => [`${value ?? 0} movimentacoes`, '']}
+                  labelFormatter={(label: unknown) => `Mes: ${label}`}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="quantidade"
+                  stroke="#001A72"
+                  strokeWidth={3}
+                  fill="url(#gradientArea)"
+                  dot={{ fill: '#001A72', strokeWidth: 2, r: 5, stroke: '#fff' }}
+                  activeDot={{ fill: '#E87722', strokeWidth: 2, r: 7, stroke: '#fff' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Cross-Period Movements Section */}
+      <div className="flex flex-col gap-4 mt-2">
+        <h2 className="text-2xl font-black text-[#001A72] tracking-tight px-2 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+            <ArrowLeftRight size={18} strokeWidth={3} />
+          </div>
+          Movimentacoes Entre Periodos
+          {crossPeriodItems.length > 0 && (
+            <span className="text-sm font-bold bg-purple-50 text-purple-600 px-3 py-1 rounded-full">
+              {crossPeriodItems.length} registros
+            </span>
+          )}
+        </h2>
+
+        {crossPeriodItems.length > 0 ? (
+          <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-purple-100 overflow-hidden">
+            {/* Summary bar */}
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 px-8 py-5 border-b border-purple-100 flex flex-wrap items-center gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-purple-500 text-white flex items-center justify-center">
+                  <ArrowLeftRight size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Total de movimentacoes</p>
+                  <p className="text-xl font-black text-purple-700">{crossPeriodItems.length}</p>
+                </div>
+              </div>
+              <div className="h-10 w-px bg-purple-200" />
+              <div>
+                <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Valor total envolvido</p>
+                <p className="text-xl font-black text-purple-700">{formatCurrency(crossPeriodTotalValue)}</p>
+              </div>
+            </div>
+
+            {/* Compact table - up to 10 items */}
+            <div className="overflow-x-auto">
+              <Table className="min-w-[900px]">
+                <TableHeader className="bg-purple-50/50">
+                  <TableRow className="border-b border-purple-100 hover:bg-transparent">
+                    <TableHead className="font-extrabold text-purple-400 py-4 px-6 text-xs uppercase tracking-widest">Data Saida</TableHead>
+                    <TableHead className="font-extrabold text-purple-400 py-4 px-4 text-xs uppercase tracking-widest">Data Entrada</TableHead>
+                    <TableHead className="font-extrabold text-purple-400 py-4 px-4 text-xs uppercase tracking-widest">Origem</TableHead>
+                    <TableHead className="font-extrabold text-purple-400 py-4 px-4 text-xs uppercase tracking-widest">Destino</TableHead>
+                    <TableHead className="font-extrabold text-purple-400 py-4 px-4 text-xs uppercase tracking-widest">Produto</TableHead>
+                    <TableHead className="font-extrabold text-purple-400 py-4 px-4 text-xs uppercase tracking-widest text-right">Valor</TableHead>
+                    <TableHead className="font-extrabold text-purple-400 py-4 px-6 text-xs uppercase tracking-widest text-right">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {crossPeriodItems.slice(0, 10).map((row, idx) => (
+                    <TableRow key={idx} className="border-b border-purple-50 hover:bg-purple-50/30 transition-colors">
+                      <TableCell className="py-3 px-6">
+                        <span className="font-bold text-slate-600 bg-purple-50 inline-block px-2 py-1 rounded-lg text-xs">
+                          {formatDate(row.data_transferencia)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3 px-4">
+                        <span className="font-bold text-purple-700 bg-purple-50 inline-block px-2 py-1 rounded-lg text-xs">
+                          {formatDate(row.data_recebimento)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-bold text-[#001A72] py-3 px-4 text-sm">{row.unidade_origem}</TableCell>
+                      <TableCell className="font-bold text-[#001A72] py-3 px-4 text-sm">{row.unidade_destino}</TableCell>
+                      <TableCell className="py-3 px-4">
+                        <span className="text-slate-700 font-bold text-sm truncate max-w-[180px] block" title={row.produto_saida}>
+                          {row.produto_saida}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3 px-4 text-right">
+                        <span className="font-bold text-[#001A72] text-sm">{formatCurrency(row.valor_saida || 0)}</span>
+                      </TableCell>
+                      <TableCell className="py-3 px-6 text-right">
+                        <StatusBadge status={row.status_item} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {crossPeriodItems.length > 10 && (
+              <div className="px-8 py-3 bg-purple-50/50 border-t border-purple-100 text-center">
+                <span className="text-xs font-bold text-purple-500">
+                  Mostrando 10 de {crossPeriodItems.length} movimentacoes entre periodos. Exporte para ver todos.
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white/80 rounded-[2rem] border border-purple-100 px-8 py-6 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-300 flex items-center justify-center">
+              <ArrowLeftRight size={16} />
+            </div>
+            <p className="text-sm font-bold text-purple-300">Nenhuma movimentacao entre periodos detectada.</p>
+          </div>
+        )}
       </div>
 
       {/* 6. Data Table */}
@@ -887,8 +1173,8 @@ function DashboardInner() {
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Destino</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Tipo</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Documento</TableHead>
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Produto (Saída → Entrada)</TableHead>
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Saída</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Produto (Saida → Entrada)</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Saida</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Entrada</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Tempo</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-8 text-xs uppercase tracking-widest text-right">Status</TableHead>
@@ -903,68 +1189,79 @@ function DashboardInner() {
                           <FileText size={24} className="text-slate-300" />
                         </div>
                         <p className="font-bold text-sm text-slate-500">Nenhum registro encontrado para os filtros aplicados.</p>
-                        <p className="text-xs text-slate-400">Tente expandir o período ou use o botão <strong>Limpar Filtros</strong>.</p>
+                        <p className="text-xs text-slate-400">Tente expandir o periodo ou use o botao <strong>Limpar Filtros</strong>.</p>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedData.map((row, idx) => (
-                    <TableRow key={idx} className="border-b border-slate-50 hover:bg-[#F8FAFC] transition-colors">
-                      <TableCell className="py-5 px-8">
-                        <div className="font-bold text-slate-600 bg-slate-100/50 inline-block px-3 py-1.5 rounded-lg text-xs">
-                          {formatDate(row.data_transferencia || row.created_at || '')}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-bold text-[#001A72] py-5 px-4">{row.unidade_origem}</TableCell>
-                      <TableCell className="font-bold text-[#001A72] py-5 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#E87722] shrink-0" />
-                          {row.unidade_destino}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-5 px-4">
-                        <TipoBadge tipo={row.tipo_movimentacao} />
-                      </TableCell>
-                      <TableCell className="font-mono text-sm font-bold text-slate-400 py-5 px-4">{row.documento}</TableCell>
-                      <TableCell className="py-5 px-4">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-slate-800 font-bold text-sm truncate max-w-[220px]" title={row.produto_saida}>
-                            {row.produto_saida}
-                          </span>
-                          <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 truncate max-w-[220px]" title={row.produto_entrada}>
-                            ↳ {row.produto_entrada || '—'}
-                          </span>
-                          {(row.valor_saida != null || row.valor_entrada != null) && (
-                            <span className="flex items-center gap-1 mt-0.5">
-                              <span className="text-[11px] font-semibold text-blue-500">{formatCurrency(row.valor_saida || 0)}</span>
-                              <span className="text-[11px] text-slate-300">→</span>
-                              <span className={`text-[11px] font-semibold ${
-                                row.valor_entrada != null && row.valor_entrada < (row.valor_saida || 0)
-                                  ? 'text-red-400'
-                                  : 'text-emerald-500'
-                              }`}>
-                                {row.valor_entrada != null ? formatCurrency(row.valor_entrada) : '—'}
+                  paginatedData.map((row, idx) => {
+                    const rowIsCrossPeriod = isCrossPeriod(row)
+                    const rowBg = getRowBg(row.status_item)
+                    return (
+                      <TableRow key={idx} className={`border-b border-slate-50 hover:bg-[#F8FAFC] transition-colors ${rowBg}`}>
+                        <TableCell className="py-5 px-8">
+                          <div className="flex items-center gap-1.5">
+                            <div className="font-bold text-slate-600 bg-slate-100/50 inline-block px-3 py-1.5 rounded-lg text-xs">
+                              {formatDate(row.data_transferencia || row.created_at || '')}
+                            </div>
+                            {rowIsCrossPeriod && (
+                              <span title="Movimentacao entre periodos" className="text-purple-500">
+                                <CalendarIcon size={13} />
                               </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-bold text-[#001A72] py-5 px-4">{row.unidade_origem}</TableCell>
+                        <TableCell className="font-bold text-[#001A72] py-5 px-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#E87722] shrink-0" />
+                            {row.unidade_destino}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-5 px-4">
+                          <TipoBadge tipo={row.tipo_movimentacao} />
+                        </TableCell>
+                        <TableCell className="font-mono text-sm font-bold text-slate-400 py-5 px-4">{row.documento}</TableCell>
+                        <TableCell className="py-5 px-4">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-slate-800 font-bold text-sm truncate max-w-[220px]" title={row.produto_saida}>
+                              {row.produto_saida}
                             </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-5 px-3 text-center">
-                        <span className="font-mono text-xs font-bold text-slate-500">{formatTime(row.data_transferencia)}</span>
-                      </TableCell>
-                      <TableCell className="py-5 px-3 text-center">
-                        <span className="font-mono text-xs font-bold text-slate-500">{formatTime(row.data_recebimento)}</span>
-                      </TableCell>
-                      <TableCell className="py-5 px-3 text-center">
-                        <span className={`font-mono text-xs font-bold ${
-                          (row.tempo_recebimento || 0) > 48 ? 'text-red-500' : (row.tempo_recebimento || 0) > 24 ? 'text-amber-500' : 'text-emerald-600'
-                        }`}>{formatTempo(row.tempo_recebimento)}</span>
-                      </TableCell>
-                      <TableCell className="py-5 px-8 text-right">
-                        <StatusBadge status={row.status_item} />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                            <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 truncate max-w-[220px]" title={row.produto_entrada}>
+                              ↳ {row.produto_entrada || '—'}
+                            </span>
+                            {(row.valor_saida != null || row.valor_entrada != null) && (
+                              <span className="flex items-center gap-1 mt-0.5">
+                                <span className="text-[11px] font-semibold text-blue-500">{formatCurrency(row.valor_saida || 0)}</span>
+                                <span className="text-[11px] text-slate-300">→</span>
+                                <span className={`text-[11px] font-semibold ${
+                                  row.valor_entrada != null && row.valor_entrada < (row.valor_saida || 0)
+                                    ? 'text-red-400'
+                                    : 'text-emerald-500'
+                                }`}>
+                                  {row.valor_entrada != null ? formatCurrency(row.valor_entrada) : '—'}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-5 px-3 text-center">
+                          <span className="font-mono text-xs font-bold text-slate-500">{formatTime(row.data_transferencia)}</span>
+                        </TableCell>
+                        <TableCell className="py-5 px-3 text-center">
+                          <span className="font-mono text-xs font-bold text-slate-500">{formatTime(row.data_recebimento)}</span>
+                        </TableCell>
+                        <TableCell className="py-5 px-3 text-center">
+                          <span className={`font-mono text-xs font-bold ${
+                            (row.tempo_recebimento || 0) > 48 ? 'text-red-500' : (row.tempo_recebimento || 0) > 24 ? 'text-amber-500' : 'text-emerald-600'
+                          }`}>{formatTempo(row.tempo_recebimento)}</span>
+                        </TableCell>
+                        <TableCell className="py-5 px-8 text-right">
+                          <StatusBadge status={row.status_item} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
@@ -974,7 +1271,7 @@ function DashboardInner() {
           {filteredData.length > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-8 py-5 border-t border-slate-100 bg-slate-50/50">
               <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
-                <span>Linhas por página:</span>
+                <span>Linhas por pagina:</span>
                 <div className="flex gap-1">
                   {PAGE_SIZES.map(s => (
                     <button
