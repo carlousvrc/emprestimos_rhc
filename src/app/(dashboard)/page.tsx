@@ -125,10 +125,12 @@ const fetchAllItens = async (): Promise<{ itens: ItemClinico[]; lastUpdate: stri
 
   const lastUpdate =
     analises && analises.length > 0
-      ? new Date(analises[0].created_at).toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        })
+      ? (() => {
+          const dt = new Date(analises[0].created_at)
+          const brDate = dt.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' })
+          const brTime = dt.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
+          return `${brDate} às ${brTime}`
+        })()
       : ''
 
   return { itens: allItens, lastUpdate }
@@ -536,7 +538,7 @@ function DashboardInner() {
             {isForceSyncing ? 'Reprocessando...' : 'Reprocessar email lido'}
           </button>
           <div className="flex items-center gap-2 text-white/60 text-xs font-bold bg-black/10 px-4 py-2 rounded-xl backdrop-blur-sm">
-            <Info size={14} /> Atualizado {lastUpdate ? `hoje, às ${lastUpdate}` : 'agora'}
+            <Info size={14} /> Última atualização: {lastUpdate || 'agora'} (Brasília)
           </div>
         </div>
       </div>
