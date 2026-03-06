@@ -7,6 +7,9 @@ import { QueryProvider } from '@/providers/query-provider'
 export const metadata: Metadata = {
     title: 'Análise de Transferências',
     description: 'Sistema de RHC via Empréstimo',
+    icons: {
+        icon: '/logo.png',
+    },
 }
 
 export default function RootLayout({
