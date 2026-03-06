@@ -346,6 +346,6 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error("Erro Severo no Sync Manual Route Handler:", error)
-        return NextResponse.json({ error: error.message || 'Erro Interno de Sincronizacao' }, { status: 500 })
+        return NextResponse.json({ error: error.message || 'Erro Interno de Sincronização' }, { status: 500 })
     }
 }

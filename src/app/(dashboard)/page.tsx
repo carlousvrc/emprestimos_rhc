@@ -512,12 +512,12 @@ function DashboardInner() {
       'Unidade Destino': item.unidade_destino,
       'Tipo': item.tipo_movimentacao === 'externo' ? 'Externo' : 'Interno',
       'Documento': item.documento,
-      'Produto (Saida)': item.produto_saida,
+      'Produto (Saída)': item.produto_saida,
       'Produto (Entrada)': item.produto_entrada || '-',
-      'Valor Saida (R$)': item.valor_saida,
+      'Valor Saída (R$)': item.valor_saida,
       'Valor Entrada (R$)': item.valor_entrada,
-      'Diferenca (R$)': (item.valor_saida || 0) - (item.valor_entrada || 0),
-      'Hora Saida': formatTime(item.data_transferencia),
+      'Diferença (R$)': (item.valor_saida || 0) - (item.valor_entrada || 0),
+      'Hora Saída': formatTime(item.data_transferencia),
       'Hora Entrada': formatTime(item.data_recebimento),
       'Tempo Recebimento': formatTempo(item.tempo_recebimento),
       'Status': item.status_item?.toUpperCase(),
@@ -527,10 +527,10 @@ function DashboardInner() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(flatData), 'Analise Filtrada')
 
     const ncData = flatData.filter(
-      i => i['Status']?.includes('NAO CONFORME') || i['Status']?.includes('DIVERGENTE')
+      i => i['Status']?.includes('NÃO CONFORME') || i['Status']?.includes('DIVERGENTE')
     )
     if (ncData.length > 0) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ncData), 'Nao Conformes')
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ncData), 'Não Conformes')
     }
 
     const confData = flatData.filter(i => i['Status'] === 'CONFORME')
@@ -541,18 +541,18 @@ function DashboardInner() {
     // Cross-period items sheet
     if (crossPeriodItems.length > 0) {
       const cpData = crossPeriodItems.map(item => ({
-        'Data Saida': formatDate(item.data_transferencia),
+        'Data Saída': formatDate(item.data_transferencia),
         'Data Entrada': formatDate(item.data_recebimento),
         'Unidade Origem': item.unidade_origem,
         'Unidade Destino': item.unidade_destino,
         'Documento': item.documento,
-        'Produto (Saida)': item.produto_saida,
+        'Produto (Saída)': item.produto_saida,
         'Produto (Entrada)': item.produto_entrada || '-',
-        'Valor Saida (R$)': item.valor_saida,
+        'Valor Saída (R$)': item.valor_saida,
         'Valor Entrada (R$)': item.valor_entrada,
         'Status': item.status_item?.toUpperCase(),
       }))
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cpData), 'Entre Periodos')
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cpData), 'Entre Períodos')
     }
 
     const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
@@ -616,7 +616,7 @@ function DashboardInner() {
           {periodoApurado && (
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-white/80 text-xs font-bold mt-2 w-fit">
               <CalendarIcon size={13} className="text-[#E87722]" />
-              Periodo Apurado: <span className="text-white">{periodoApurado}</span>
+              Período Apurado: <span className="text-white">{periodoApurado}</span>
             </div>
           )}
         </div>
@@ -643,7 +643,7 @@ function DashboardInner() {
             {isForceSyncing ? 'Reprocessando...' : 'Reprocessar email lido'}
           </button>
           <div className="flex items-center gap-2 text-white/60 text-xs font-bold bg-black/10 px-4 py-2 rounded-xl backdrop-blur-sm">
-            <Info size={14} /> Ultima atualizacao: {lastUpdate || 'agora'} (Brasilia)
+            <Info size={14} /> Última atualização: {lastUpdate || 'agora'} (Brasília)
           </div>
         </div>
       </div>
@@ -749,7 +749,7 @@ function DashboardInner() {
         <div className="flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-6 py-4 text-amber-800 font-bold text-sm -mt-4 md:-mt-8 relative z-10 mx-4">
           <AlertCircle size={18} className="text-amber-500 shrink-0" />
           <span>
-            <strong>{externosCount}</strong> {externosCount === 1 ? 'movimentacao externa identificada' : 'movimentacoes externas identificadas'} —{' '}
+            <strong>{externosCount}</strong> {externosCount === 1 ? 'movimentação externa identificada' : 'movimentações externas identificadas'} —{' '}
             {externosCount === 1 ? 'material' : 'materiais'} de outros hospitais que precisam ser devolvidos.
           </span>
         </div>
@@ -781,7 +781,7 @@ function DashboardInner() {
               {formatCurrency(metrics.totalEntrada)}
             </h3>
             <p className="text-[10px] font-bold text-emerald-600 mt-1">
-              Taxa de recuperacao: {metrics.taxaRecuperacao.toFixed(1)}%
+              Taxa de recuperação: {metrics.taxaRecuperacao.toFixed(1)}%
             </p>
           </div>
         </div>
@@ -807,7 +807,7 @@ function DashboardInner() {
               {metrics.saldo <= 0 ? '-' : '+'}{formatCurrency(Math.abs(metrics.saldo))}
             </h3>
             <p className={`text-[10px] font-bold mt-1 ${metrics.saldo <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              {metrics.saldo <= 0 ? 'Recuperacao maior que saida' : 'Valor ainda pendente de retorno'}
+              {metrics.saldo <= 0 ? 'Recuperação maior que saída' : 'Valor ainda pendente de retorno'}
             </p>
           </div>
         </div>
@@ -838,7 +838,7 @@ function DashboardInner() {
             <AlertCircle size={20} strokeWidth={2.5} />
           </div>
           <div className="relative z-10 mt-2 flex-1">
-            <p className="text-red-900/60 text-[10px] font-black uppercase tracking-widest mb-1">Divergencias</p>
+            <p className="text-red-900/60 text-[10px] font-black uppercase tracking-widest mb-1">Divergências</p>
             <h3 className="text-xl lg:text-2xl font-black text-red-950 tracking-tight truncate" title={formatCurrency(metrics.divergencias)}>
               {formatCurrency(metrics.divergencias)}
             </h3>
@@ -878,7 +878,7 @@ function DashboardInner() {
             <p className="text-4xl font-black text-red-600">{metrics.naoConformes.toLocaleString('pt-BR')}</p>
           </div>
           <div className="bg-[#fff7ed] p-6 rounded-3xl border border-orange-100 flex flex-col justify-center items-center text-center col-span-2">
-            <p className="text-orange-900/60 text-xs font-black uppercase tracking-widest">Nao Recebidos</p>
+            <p className="text-orange-900/60 text-xs font-black uppercase tracking-widest">Não Recebidos</p>
             <p className="text-3xl font-black text-[#85400d]">{metrics.itensPendentes.toLocaleString('pt-BR')}</p>
           </div>
         </div>
@@ -895,7 +895,7 @@ function DashboardInner() {
           </div>
           <div className="flex items-center justify-between border-b border-white/10 py-4 relative z-10">
             <span className="text-xs font-bold text-purple-300 uppercase tracking-widest flex items-center gap-1.5">
-              <ArrowLeftRight size={13} /> Entre Periodos
+              <ArrowLeftRight size={13} /> Entre Períodos
             </span>
             <span className="text-2xl font-black text-purple-300">{metrics.crossPeriodCount}</span>
           </div>
@@ -912,8 +912,8 @@ function DashboardInner() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
         <div className="lg:col-span-2 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 p-8 flex flex-col">
           <div className="mb-8">
-            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Eficacia (Aplicando Filtros)</h3>
-            <p className="text-sm font-semibold text-slate-400 mt-1">Distribuicao de status dos registros analisados</p>
+            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Eficácia (Aplicando Filtros)</h3>
+            <p className="text-sm font-semibold text-slate-400 mt-1">Distribuição de status dos registros analisados</p>
           </div>
           <div className="flex-1 w-full min-h-[250px] relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -966,8 +966,8 @@ function DashboardInner() {
 
         <div className="lg:col-span-3 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 p-8 flex flex-col">
           <div className="mb-8">
-            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Hospitais Criticos</h3>
-            <p className="text-sm font-semibold text-slate-400 mt-1">Top 5 unidades com mais divergencias nos envios</p>
+            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Hospitais Críticos</h3>
+            <p className="text-sm font-semibold text-slate-400 mt-1">Top 5 unidades com mais divergências nos envios</p>
           </div>
           <div className="flex-1 w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -978,7 +978,7 @@ function DashboardInner() {
                   cursor={{ fill: '#F1F5F9', radius: 12 } as object}
                   contentStyle={{ borderRadius: '16px', border: 'none', padding: '16px', boxShadow: '0 10px 40px -10px rgb(0 0 0 / 0.15)' }}
                   itemStyle={{ color: '#E87722', fontWeight: 900, fontSize: '16px' }}
-                  formatter={(value: number | undefined) => [`${value ?? 0} divergencias`, '']}
+                  formatter={(value: number | undefined) => [`${value ?? 0} divergências`, '']}
                   labelFormatter={(label: unknown) => `Hospital ${label}`}
                 />
                 <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={28}>
@@ -996,8 +996,8 @@ function DashboardInner() {
       {monthlyEvolutionData.length > 1 && (
         <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 p-8 flex flex-col">
           <div className="mb-8">
-            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Evolucao Mensal de Movimentacoes</h3>
-            <p className="text-sm font-semibold text-slate-400 mt-1">Volume de registros agrupados por mes</p>
+            <h3 className="text-xl font-black text-[#001A72] tracking-tight">Evolução Mensal de Movimentações</h3>
+            <p className="text-sm font-semibold text-slate-400 mt-1">Volume de registros agrupados por mês</p>
           </div>
           <div className="w-full min-h-[280px]">
             <ResponsiveContainer width="100%" height={280}>
@@ -1027,7 +1027,7 @@ function DashboardInner() {
                     backgroundColor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
                   }}
                   itemStyle={{ color: '#001A72', fontWeight: 900, fontSize: '15px' }}
-                  formatter={(value: number | undefined) => [`${value ?? 0} movimentacoes`, '']}
+                  formatter={(value: number | undefined) => [`${value ?? 0} movimentações`, '']}
                   labelFormatter={(label: unknown) => `Mes: ${label}`}
                 />
                 <Area
@@ -1051,7 +1051,7 @@ function DashboardInner() {
           <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
             <ArrowLeftRight size={18} strokeWidth={3} />
           </div>
-          Movimentacoes Entre Periodos
+          Movimentações Entre Períodos
           {crossPeriodItems.length > 0 && (
             <span className="text-sm font-bold bg-purple-50 text-purple-600 px-3 py-1 rounded-full">
               {crossPeriodItems.length} registros
@@ -1068,7 +1068,7 @@ function DashboardInner() {
                   <ArrowLeftRight size={16} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Total de movimentacoes</p>
+                  <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Total de movimentações</p>
                   <p className="text-xl font-black text-purple-700">{crossPeriodItems.length}</p>
                 </div>
               </div>
@@ -1084,7 +1084,7 @@ function DashboardInner() {
               <Table className="min-w-[900px]">
                 <TableHeader className="bg-purple-50/50">
                   <TableRow className="border-b border-purple-100 hover:bg-transparent">
-                    <TableHead className="font-extrabold text-purple-400 py-4 px-6 text-xs uppercase tracking-widest">Data Saida</TableHead>
+                    <TableHead className="font-extrabold text-purple-400 py-4 px-6 text-xs uppercase tracking-widest">Data Saída</TableHead>
                     <TableHead className="font-extrabold text-purple-400 py-4 px-4 text-xs uppercase tracking-widest">Data Entrada</TableHead>
                     <TableHead className="font-extrabold text-purple-400 py-4 px-4 text-xs uppercase tracking-widest">Origem</TableHead>
                     <TableHead className="font-extrabold text-purple-400 py-4 px-4 text-xs uppercase tracking-widest">Destino</TableHead>
@@ -1127,7 +1127,7 @@ function DashboardInner() {
             {crossPeriodItems.length > 10 && (
               <div className="px-8 py-3 bg-purple-50/50 border-t border-purple-100 text-center">
                 <span className="text-xs font-bold text-purple-500">
-                  Mostrando 10 de {crossPeriodItems.length} movimentacoes entre periodos. Exporte para ver todos.
+                  Mostrando 10 de {crossPeriodItems.length} movimentações entre períodos. Exporte para ver todos.
                 </span>
               </div>
             )}
@@ -1137,7 +1137,7 @@ function DashboardInner() {
             <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-300 flex items-center justify-center">
               <ArrowLeftRight size={16} />
             </div>
-            <p className="text-sm font-bold text-purple-300">Nenhuma movimentacao entre periodos detectada.</p>
+            <p className="text-sm font-bold text-purple-300">Nenhuma movimentação entre períodos detectada.</p>
           </div>
         )}
       </div>
@@ -1173,8 +1173,8 @@ function DashboardInner() {
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Destino</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Tipo</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Documento</TableHead>
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Produto (Saida → Entrada)</TableHead>
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Saida</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Produto (Saída → Entrada)</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Saída</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Entrada</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Tempo</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-8 text-xs uppercase tracking-widest text-right">Status</TableHead>
@@ -1189,7 +1189,7 @@ function DashboardInner() {
                           <FileText size={24} className="text-slate-300" />
                         </div>
                         <p className="font-bold text-sm text-slate-500">Nenhum registro encontrado para os filtros aplicados.</p>
-                        <p className="text-xs text-slate-400">Tente expandir o periodo ou use o botao <strong>Limpar Filtros</strong>.</p>
+                        <p className="text-xs text-slate-400">Tente expandir o período ou use o botão <strong>Limpar Filtros</strong>.</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1205,7 +1205,7 @@ function DashboardInner() {
                               {formatDate(row.data_transferencia || row.created_at || '')}
                             </div>
                             {rowIsCrossPeriod && (
-                              <span title="Movimentacao entre periodos" className="text-purple-500">
+                              <span title="Movimentação entre períodos" className="text-purple-500">
                                 <CalendarIcon size={13} />
                               </span>
                             )}
