@@ -243,9 +243,9 @@ export async function POST(req: Request) {
                 status_item: String(item.status || '').toLowerCase().replace('✅ ', '').replace('❌ ', '').replace('⚠️ ', ''),
                 tempo_recebimento: Number(item.tempo_recebimento || 0),
                 valor_saida: Number(item.val_saida || 0),
-                valor_entrada: Number(item.val_entrada || 0),
-                diferenca_financeira: Number(item.dif_val || 0),
-                diferenca_quantidade: Number(item.dif_qtd || 0),
+                valor_entrada: item.val_entrada != null && item.val_entrada !== '' ? Number(item.val_entrada) : null,
+                diferenca_financeira: item.dif_val != null && item.dif_val !== '' ? Number(item.dif_val) : null,
+                diferenca_quantidade: item.dif_qtd != null && item.dif_qtd !== '' ? Number(item.dif_qtd) : null,
             });
         }
 

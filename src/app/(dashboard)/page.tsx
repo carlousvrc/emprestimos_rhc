@@ -744,8 +744,8 @@ function DashboardInner() {
         </div>
       </div>
 
-      {/* External movements alert banner */}
-      {externosCount > 0 && (
+      {/* External movements alert banner — only show when not already filtering by externo */}
+      {externosCount > 0 && tipoFilter !== 'externo' && (
         <div className="flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-6 py-4 text-amber-800 font-bold text-sm -mt-4 md:-mt-8 relative z-10 mx-4">
           <AlertCircle size={18} className="text-amber-500 shrink-0" />
           <span>
