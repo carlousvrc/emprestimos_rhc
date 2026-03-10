@@ -12,7 +12,11 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
     return groups.flatMap(g => g.attachments);
 }
 
-export async function fetchExcelAttachmentsByEmail(force = false): Promise<EmailAttachmentGroup[]> {
+export async function fetchExcelAttachmentsByEmail(
+    force = false,
+    sinceDate?: Date,
+    beforeDate?: Date
+): Promise<EmailAttachmentGroup[]> {
     const user = process.env.GMAIL_USER || 'carlos.victor@grupohospitalcasa.com.br';
     const pass = process.env.GMAIL_APP_PASSWORD || '';
 
@@ -35,12 +39,11 @@ export async function fetchExcelAttachmentsByEmail(force = false): Promise<Email
     try {
         const lock = await client.getMailboxLock('INBOX');
         try {
-            // Janela de busca: 14 dias para sync normal, 60 dias para force.
-            const dayWindow = force ? 60 : 14;
-            const dateStr = new Date(Date.now() - dayWindow * 24 * 60 * 60 * 1000);
+            // Se datas específicas foram passadas, usa elas; caso contrário usa janela padrão
+            const since = sinceDate ?? new Date(Date.now() - (force ? 60 : 7) * 24 * 60 * 60 * 1000);
+            const searchCriteria: SearchObject = { since };
+            if (beforeDate) searchCriteria.before = beforeDate;
 
-            // Busca com filtros de remetente/assunto (se configurados)
-            const searchCriteria: SearchObject = { since: dateStr };
             const senderEnv = process.env.GMAIL_SENDER || '';
             if (senderEnv) searchCriteria.from = senderEnv;
             const subjectFilter = process.env.GMAIL_SUBJECT || '';
@@ -51,7 +54,8 @@ export async function fetchExcelAttachmentsByEmail(force = false): Promise<Email
             // Fallback: se não encontrou com filtros, tenta só pela data
             if (uids.length === 0 && (senderEnv || subjectFilter)) {
                 console.log(`[IMAP] Busca com filtros retornou 0. Tentando sem remetente/assunto...`);
-                const fallbackCriteria: SearchObject = { since: dateStr };
+                const fallbackCriteria: SearchObject = { since };
+                if (beforeDate) fallbackCriteria.before = beforeDate;
                 uids = await searchUIDs(client, fallbackCriteria);
                 if (uids.length > 0) {
                     console.log(`[IMAP] Fallback encontrou ${uids.length} email(s). Verifique GMAIL_SENDER="${senderEnv}" e GMAIL_SUBJECT="${subjectFilter}".`);
@@ -81,8 +85,10 @@ export async function fetchExcelAttachmentsByEmail(force = false): Promise<Email
                             content: att.content
                         }))
                     });
-                    // Mark as seen
                     await client.messageFlagsAdd({ uid }, ['\\Seen'], { uid: true });
+                    // Sync normal: para no primeiro email válido.
+                    // Com datas específicas: processa todos na janela.
+                    if (!sinceDate && !beforeDate) break;
                 }
             }
         } finally {

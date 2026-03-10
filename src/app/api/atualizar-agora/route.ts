@@ -119,12 +119,17 @@ export async function POST(req: Request) {
 
         const url = new URL(req.url)
         const force = url.searchParams.get('force') === 'true'
+        // Parâmetros opcionais para buscar email de data específica (ex: ?since=2026-03-01&before=2026-03-02)
+        const sinceParam = url.searchParams.get('since')
+        const beforeParam = url.searchParams.get('before')
+        const sinceDate = sinceParam ? new Date(sinceParam + 'T00:00:00Z') : undefined
+        const beforeDate = beforeParam ? new Date(beforeParam + 'T23:59:59Z') : undefined
 
         // 1. Fetch Attachments via IMAP — todos os emails na janela, agrupados por email
         let emailGroups: Awaited<ReturnType<typeof fetchExcelAttachmentsByEmail>> = [];
         try {
             console.log(">> Etapa 1: Baixando planilhas de e-mails via IMAP...")
-            emailGroups = await fetchExcelAttachmentsByEmail(force);
+            emailGroups = await fetchExcelAttachmentsByEmail(force, sinceDate, beforeDate);
             if (emailGroups.length === 0) {
                 const senderInfo = process.env.GMAIL_SENDER
                     ? `remetente: ${process.env.GMAIL_SENDER}`
