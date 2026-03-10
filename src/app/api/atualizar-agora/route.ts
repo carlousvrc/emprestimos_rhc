@@ -240,7 +240,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true, message: "Pares Saída/Entrada inválidos em todos os emails encontrados.", count: 0 });
         }
 
-        // 4. Update Database — UPSERT acumulativo (preserva dados de outros meses)
+        // 4. Update Database
         console.log(">> Etapa 4: Atualizando banco de dados Supabase...")
         {
             const supabaseAdmin = createClient(
@@ -248,22 +248,38 @@ export async function POST(req: Request) {
                 process.env.SUPABASE_SERVICE_ROLE_KEY!
             )
 
-            // Deduplica pelo business key (último valor vence)
+            // Deduplica pelo business key (último valor vence dentro do mesmo sync)
             const uniqueRecordsMap = new Map<string, any>();
             for (const record of supabaseRecords) {
                 const key = `${record.documento}|${record.unidade_origem}|${record.unidade_destino}|${record.produto_saida}`;
                 uniqueRecordsMap.set(key, record);
             }
             const uniqueSupabaseRecords = Array.from(uniqueRecordsMap.values());
-            console.log(`Upserting ${uniqueSupabaseRecords.length} registros únicos (${emailGroups.length} email(s) processado(s))...`);
 
-            // Upsert com conflito no business key — preserva dados de outros meses
+            if (sinceDate && beforeDate) {
+                // Sync de período específico: apaga só os registros daquele período e reinsere
+                // Preserva dados de outros meses no banco
+                const { error: errDel } = await supabaseAdmin
+                    .from('itens_clinicos')
+                    .delete()
+                    .gte('data_transferencia', sinceDate.toISOString())
+                    .lte('data_transferencia', beforeDate.toISOString())
+                if (errDel) throw new Error(`Falha ao limpar período: ${errDel.message}`);
+                console.log(`Período ${sinceDate.toISOString().split('T')[0]} → ${beforeDate.toISOString().split('T')[0]} limpo. Inserindo ${uniqueSupabaseRecords.length} registros...`);
+            } else {
+                // Sync normal: full refresh (apaga tudo e reinsere)
+                const { error: errDelete } = await supabaseAdmin
+                    .from('itens_clinicos')
+                    .delete()
+                    .neq('id', '00000000-0000-0000-0000-000000000000')
+                if (errDelete) throw new Error(`Falha ao limpar itens_clinicos: ${errDelete.message}`);
+                console.log(`Tabela limpa. Inserindo ${uniqueSupabaseRecords.length} registros...`);
+            }
+
             const BATCH_SIZE = 100;
             for (let i = 0; i < uniqueSupabaseRecords.length; i += BATCH_SIZE) {
                 const chunk = uniqueSupabaseRecords.slice(i, i + BATCH_SIZE)
-                const { error: errItens } = await supabaseAdmin
-                    .from('itens_clinicos')
-                    .upsert(chunk, { onConflict: 'documento,unidade_origem,unidade_destino,produto_saida', ignoreDuplicates: false })
+                const { error: errItens } = await supabaseAdmin.from('itens_clinicos').insert(chunk)
                 if (errItens) throw new Error(`Falha ao salvar itens_clinicos no Supabase: ${errItens.message}`);
             }
 
