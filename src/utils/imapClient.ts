@@ -1,9 +1,19 @@
 import { ImapFlow, SearchObject } from 'imapflow';
-import { simpleParser, ParsedMail, Attachment } from 'mailparser';
+import { simpleParser, ParsedMail } from 'mailparser';
+
+export interface EmailAttachmentGroup {
+    emailUid: number;
+    attachments: { filename: string; content: Buffer }[];
+}
 
 export async function fetchExcelAttachments(force = false): Promise<{ filename: string; content: Buffer }[]> {
+    const groups = await fetchExcelAttachmentsByEmail(force);
+    // Flatten — backwards compat for any existing callers
+    return groups.flatMap(g => g.attachments);
+}
+
+export async function fetchExcelAttachmentsByEmail(force = false): Promise<EmailAttachmentGroup[]> {
     const user = process.env.GMAIL_USER || 'carlos.victor@grupohospitalcasa.com.br';
-    // Use the App Password generated for the Google Account
     const pass = process.env.GMAIL_APP_PASSWORD || '';
 
     if (!pass) {
@@ -14,36 +24,27 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
         host: 'imap.gmail.com',
         port: 993,
         secure: true,
-        auth: {
-            user,
-            pass
-        },
+        auth: { user, pass },
         logger: false
     });
 
-    const attachmentsFound: { filename: string; content: Buffer }[] = [];
+    const groupsFound: EmailAttachmentGroup[] = [];
 
     await client.connect();
 
     try {
         const lock = await client.getMailboxLock('INBOX');
         try {
-            // Janela de busca: 7 dias para sync normal, 45 dias para force.
-            // Não depende do flag \\Seen — o CRON e o Gmail webmail marcam emails como lidos
-            // antes do sync manual, então não filtramos por seen.
-            const dayWindow = force ? 45 : 7;
+            // Janela de busca: 14 dias para sync normal, 60 dias para force.
+            const dayWindow = force ? 60 : 14;
             const dateStr = new Date(Date.now() - dayWindow * 24 * 60 * 60 * 1000);
 
             // Busca com filtros de remetente/assunto (se configurados)
             const searchCriteria: SearchObject = { since: dateStr };
             const senderEnv = process.env.GMAIL_SENDER || '';
-            if (senderEnv) {
-                searchCriteria.from = senderEnv;
-            }
+            if (senderEnv) searchCriteria.from = senderEnv;
             const subjectFilter = process.env.GMAIL_SUBJECT || '';
-            if (subjectFilter) {
-                searchCriteria.subject = subjectFilter;
-            }
+            if (subjectFilter) searchCriteria.subject = subjectFilter;
 
             let uids = await searchUIDs(client, searchCriteria);
 
@@ -57,19 +58,15 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
                 }
             }
 
-            if (uids.length === 0) {
-                return [];
-            }
+            if (uids.length === 0) return [];
 
-            // Sort UIDs descending to process the newest first
+            // Sort UIDs descending (newest first)
             uids.sort((a, b) => b - a);
 
             for (const uid of uids) {
-                // Fetch the full message source
                 const message = await client.fetchOne(uid.toString(), { source: true }, { uid: true });
                 if (!message || !message.source) continue;
 
-                // Parse the raw email source
                 const parsed: ParsedMail = await simpleParser(message.source);
 
                 const excelAttachments = parsed.attachments.filter(att =>
@@ -77,16 +74,15 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
                 );
 
                 if (excelAttachments.length > 0) {
-                    for (const att of excelAttachments) {
-                        attachmentsFound.push({
+                    groupsFound.push({
+                        emailUid: uid,
+                        attachments: excelAttachments.map(att => ({
                             filename: att.filename || 'unknown.xlsx',
                             content: att.content
-                        });
-                    }
-                    // Mark as seen so we don't process it again on the next sync
+                        }))
+                    });
+                    // Mark as seen
                     await client.messageFlagsAdd({ uid }, ['\\Seen'], { uid: true });
-                    // Para após encontrar o email mais recente com anexos válidos
-                    break;
                 }
             }
         } finally {
@@ -96,7 +92,7 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
         await client.logout();
     }
 
-    return attachmentsFound;
+    return groupsFound;
 }
 
 /** Helper: executa IMAP SEARCH e retorna array de UIDs */
