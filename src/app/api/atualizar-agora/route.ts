@@ -257,7 +257,7 @@ export async function POST(req: Request) {
                 process.env.SUPABASE_SERVICE_ROLE_KEY!
             )
 
-            // Deduplicate records to prevent "ON CONFLICT DO UPDATE command cannot affect row a second time"
+            // Deduplicate by business key before inserting
             const uniqueRecordsMap = new Map();
             for (const record of supabaseRecords) {
                 const key = `${record.documento}|${record.unidade_origem}|${record.unidade_destino}|${record.produto_saida}`;
@@ -265,14 +265,20 @@ export async function POST(req: Request) {
             }
             const uniqueSupabaseRecords = Array.from(uniqueRecordsMap.values());
 
-            // Upsert Itens Clinicos in batches
+            // Full refresh: delete all existing records then insert fresh
+            // This prevents duplicate accumulation across multiple syncs
+            const { error: errDelete } = await supabaseAdmin
+                .from('itens_clinicos')
+                .delete()
+                .neq('id', '00000000-0000-0000-0000-000000000000') // delete all rows
+            if (errDelete) throw new Error(`Falha ao limpar itens_clinicos: ${errDelete.message}`);
+            console.log(`🗑️ Tabela itens_clinicos limpa. Inserindo ${uniqueSupabaseRecords.length} registros...`);
+
+            // Insert in batches
             const BATCH_SIZE = 100;
             for (let i = 0; i < uniqueSupabaseRecords.length; i += BATCH_SIZE) {
                 const chunk = uniqueSupabaseRecords.slice(i, i + BATCH_SIZE)
-                const { error: errItens } = await supabaseAdmin.from('itens_clinicos').upsert(chunk, {
-                    onConflict: 'documento,unidade_origem,unidade_destino,produto_saida,data_transferencia',
-                    ignoreDuplicates: false
-                })
+                const { error: errItens } = await supabaseAdmin.from('itens_clinicos').insert(chunk)
                 if (errItens) throw new Error(`Falha ao salvar itens_clinicos no Supabase: ${errItens.message}`);
             }
 
