@@ -2,9 +2,17 @@ import imaplib
 import email
 from email.header import decode_header
 import os
+import sys
 from datetime import datetime
 import datetime as dt
 import re
+
+# Fix Windows console encoding for emoji/unicode output
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ('utf-8', 'utf8'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 # Configurações - Substitua pelos seus dados ou use variáveis de ambiente
 # Para gerar sennha de app: https://myaccount.google.com/apppasswords
@@ -19,7 +27,7 @@ try:
     if "GMAIL_USER" in st.secrets:
         EMAIL_USER = st.secrets["GMAIL_USER"]
     if "GMAIL_APP_PASSWORD" in st.secrets:
-        EMAIL_PASS = st.secrets["GMAIL_APP_PASSWORD"]
+        EMAIL_PASS = st.secrets["GMAIL_APP_PASSWORD"].replace(" ", "")
 except:
     pass
 
