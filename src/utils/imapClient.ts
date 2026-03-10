@@ -2,7 +2,7 @@ import { ImapFlow, SearchObject } from 'imapflow';
 import { simpleParser, ParsedMail, Attachment } from 'mailparser';
 
 export async function fetchExcelAttachments(force = false): Promise<{ filename: string; content: Buffer }[]> {
-    const user = process.env.GMAIL_USER || 'gestao_mxm@grupohospitalcasa.com.br';
+    const user = process.env.GMAIL_USER || 'carlos.victor@grupohospitalcasa.com.br';
     // Use the App Password generated for the Google Account
     const pass = process.env.GMAIL_APP_PASSWORD || '';
 
