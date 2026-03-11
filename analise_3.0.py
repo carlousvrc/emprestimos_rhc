@@ -443,37 +443,40 @@ if st.session_state.get('show_admin') and st.session_state.user_role == 'admin':
                                     'df': df_final,
                                     'last_update': datetime.now()
                                 }, f)
-                                
-                            
+
+                            # Verificação: lê de volta para confirmar que foi salvo corretamente
+                            with open(db_path, 'rb') as f_verify:
+                                data_verify = pickle.load(f_verify)
+                            df_verify = data_verify['df']
+                            st.success(f"✅ Banco local verificado: {len(df_verify)} registros totais.")
+
+                            # Mostra distribuição por mês para conferência
+                            if 'Data' in df_verify.columns:
+                                df_verify['_mes'] = pd.to_datetime(df_verify['Data'], errors='coerce').dt.to_period('M').astype(str)
+                                resumo = df_verify.groupby('_mes').size().reset_index(name='Registros')
+                                resumo.columns = ['Mês', 'Registros']
+                                st.dataframe(resumo, use_container_width=True)
+
                             # 1. Sync Email
+                            st.info("Enviando para nuvem (email)...")
                             success_up, msg_up = remote_persistence.sync_up(db_path, remote_persistence.CUMULATIVE_TAG)
                             if success_up:
-                                st.success(f"Histórico atualizado (Email)! (+{len(df_res_hist)} registros).")
-                            
+                                st.success(f"✅ Banco sincronizado com nuvem (email)! Total: {len(df_final)} registros.")
+                            else:
+                                st.error(f"❌ FALHA no sync com nuvem: {msg_up}. Os dados estão salvos LOCALMENTE mas não na nuvem.")
+
                             # 2. Sync Drive/Sheets
                             try:
                                 import sheets_handler
                                 if sheets_handler.sync_full_report(df_final):
-                                    st.success("Google Sheets (Base Drive) atualizado com sucesso!")
+                                    st.success("Google Sheets atualizado com sucesso!")
                                 else:
-                                    st.error("Falha ao atualizar Google Sheets.")
+                                    st.warning("Falha ao atualizar Google Sheets.")
                             except Exception as e_sh:
                                 st.error(f"Erro Sheets: {e_sh}")
-                            
-                            # --- Google Sheets Append (Admin) ---
-                            try:
-                                import sheets_handler
-                                st.info("Sincronizando com Google Sheets (Todas as Abas)...")
-                                # Usar df_final que contem o historico completo
-                                if sheets_handler.sync_full_report(df_final): 
-                                    st.success("Google Sheets atualizado!")
-                                else:
-                                    st.warning("Falha ao salvar no Google Sheets.")
-                            except Exception as e_sh:
-                                st.error(f"Erro Sheets: {e_sh}")
-                                
+
                             st.session_state.df_resultado = df_final
-                            time.sleep(1) # Dá tempo de ler a mensagem
+                            time.sleep(2)
                             st.rerun()
                             # else:
                             #     st.error(f"❌ Salvo localmente, mas falha no upload: {msg_up}")
@@ -825,25 +828,14 @@ if st.session_state.df_resultado is None:
                  pass
 
         if st.session_state.df_resultado is None:
-             # Fallback final se nada carregou
-             pass
-        
-        else:
-            # Fallback para Lógica Antiga (Diário)
+            # Fallback final: tenta resultado_diario.pkl se nenhuma fonte principal carregou
             daily_pkl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados", "resultado_diario.pkl")
             if os.path.exists(daily_pkl):
                 try:
                     with open(daily_pkl, "rb") as f:
                         dados_auto = pickle.load(f)
-                    
-                    # Verifica data do arquivo
+
                     data_proc = dados_auto['metadata']['data_processamento']
-                    is_today = data_proc.date() == datetime.now().date()
-                    
-                    if not is_today:
-                         pass # Permite dados antigos se não tiver cumulativo, mas avisa?
-                         # raise Exception("Dados desatualizados (não são de hoje)")
-                         
                     st.session_state.df_resultado = dados_auto['df']
                     st.session_state.current_metadata = {
                         'arquivo_saida': dados_auto['metadata']['arquivo_saida'],
