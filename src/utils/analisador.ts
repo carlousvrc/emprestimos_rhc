@@ -166,7 +166,7 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
 
     const stats = {
         conformes: 0, nao_conformes: 0, nao_encontrados: 0,
-        valor_divergente: 0, qtd_divergente: 0,
+        valor_divergente: 0, qtd_divergente: 0, unidade_divergente: 0,
         matches_perfeitos: 0, matches_bons: 0, matches_razoaveis: 0
     }
 
@@ -400,6 +400,9 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
                 conformeValor = Math.abs(diferencaValor) <= 10
             }
 
+            // Verifica divergência de unidade destino
+            const destinoDivergente = rowS.destino_norm !== rowE.destino_norm
+
             let status = '❌ Não Conforme'
             let tipoDiv = ''
             let qualidadeMatch = '⭐ Razoável'
@@ -408,7 +411,7 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
             else if (bestMatch.score >= 75) { qualidadeMatch = '⭐⭐ Bom'; stats.matches_bons++ }
             else { stats.matches_razoaveis++ }
 
-            if (conformeValor && conformeQtd) {
+            if (conformeValor && conformeQtd && !destinoDivergente) {
                 status = '✅ Conforme'
                 tipoDiv = '-'
                 stats.conformes++
@@ -417,6 +420,7 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
                 const parts: string[] = []
                 if (!conformeValor) { parts.push('Divergência Valor'); stats.valor_divergente++ }
                 if (!conformeQtd) { parts.push('Divergência Qtd'); stats.qtd_divergente++ }
+                if (destinoDivergente) { parts.push('Unidade Destino Divergente'); stats.unidade_divergente++ }
                 tipoDiv = parts.join(' | ')
             }
 

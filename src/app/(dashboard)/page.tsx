@@ -231,7 +231,7 @@ function computeMetrics(filteredData: ItemClinico[]) {
   let iConf = 0, iNConf = 0, iPend = 0
   let entradasInf = 0, somaTempos = 0, countTempos = 0, divQtd = 0
   let crossPeriodCount = 0
-  let divValor = 0, divQtdCount = 0, divMista = 0
+  let divValor = 0, divQtdCount = 0, divMista = 0, divUnidade = 0
   let matchExcelente = 0, matchBom = 0, matchRazoavel = 0
 
   filteredData.forEach(item => {
@@ -268,11 +268,13 @@ function computeMetrics(filteredData: ItemClinico[]) {
 
       // Tipo de divergência
       const td = String(item.tipo_divergencia || '').toLowerCase()
-      const temValor = td.includes('valor')
+      const temValor = td.includes('divergência valor') || (td.includes('valor') && !td.includes('unidade'))
       const temQtd = td.includes('qtd') || td.includes('quantidade')
+      const temUnidade = td.includes('unidade')
       if (temValor && temQtd) divMista++
       else if (temValor) divValor++
       else if (temQtd) divQtdCount++
+      if (temUnidade) divUnidade++
     }
 
     // Cross-period
@@ -308,6 +310,7 @@ function computeMetrics(filteredData: ItemClinico[]) {
     divValor,
     divQtdCount,
     divMista,
+    divUnidade,
     matchExcelente,
     matchBom,
     matchRazoavel,
@@ -348,12 +351,30 @@ function QualidadeBadge({ qualidade }: { qualidade?: string }) {
 
 function TipoDivBadge({ tipo }: { tipo?: string }) {
   if (!tipo || tipo === '-') return <span className="text-slate-300 text-xs">—</span>
-  if (tipo.toLowerCase().includes('valor') && (tipo.toLowerCase().includes('qtd') || tipo.toLowerCase().includes('quantidade')))
-    return <span className="inline-flex text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Valor + Qtd</span>
-  if (tipo.toLowerCase().includes('valor'))
-    return <span className="inline-flex text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Div. Valor</span>
-  if (tipo.toLowerCase().includes('qtd') || tipo.toLowerCase().includes('quantidade'))
-    return <span className="inline-flex text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Div. Qtd</span>
+  const t = tipo.toLowerCase()
+  const temValor = t.includes('divergência valor') || (t.includes('valor') && !t.includes('unidade'))
+  const temQtd = t.includes('qtd') || t.includes('quantidade')
+  const temUnidade = t.includes('unidade')
+
+  // Combinações múltiplas: montar badges em linha
+  if (temValor || temQtd || temUnidade) {
+    return (
+      <div className="flex flex-col gap-0.5 items-center">
+        {temValor && temQtd && (
+          <span className="inline-flex text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Valor + Qtd</span>
+        )}
+        {temValor && !temQtd && (
+          <span className="inline-flex text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Div. Valor</span>
+        )}
+        {temQtd && !temValor && (
+          <span className="inline-flex text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Div. Qtd</span>
+        )}
+        {temUnidade && (
+          <span className="inline-flex text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Unid. Destino ≠</span>
+        )}
+      </div>
+    )
+  }
   // Outros motivos (Item não encontrado, Entrada órfã, etc.)
   return <span className="inline-flex text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md text-[10px] font-bold max-w-[140px] truncate" title={tipo}>{tipo}</span>
 }
@@ -975,6 +996,18 @@ function DashboardInner() {
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
                   <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${metrics.naoConformes > 0 ? (metrics.divMista / metrics.naoConformes) * 100 : 0}%` }} />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-blue-500 shrink-0" />
+              <div className="flex-1">
+                <div className="flex justify-between text-sm font-bold mb-1">
+                  <span className="text-slate-600">Unidade Destino Divergente</span>
+                  <span className="text-blue-600">{metrics.divUnidade}</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${metrics.naoConformes > 0 ? (metrics.divUnidade / metrics.naoConformes) * 100 : 0}%` }} />
                 </div>
               </div>
             </div>
