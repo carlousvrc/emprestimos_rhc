@@ -211,16 +211,42 @@ export async function POST(req: Request) {
         }
         const uniquePayload = Array.from(dedupeMap.values())
 
-        // Upsert em batches de 100 (unique constraint: documento, unidade_origem, unidade_destino, produto_saida)
+        // Determina o período dos dados enviados (mês de início e fim)
+        // para apagar apenas esse intervalo no banco e reinserir sem conflito com outros meses
+        const datas = uniquePayload
+            .map(r => r.data_transferencia ? new Date(r.data_transferencia) : null)
+            .filter((d): d is Date => d !== null && !isNaN(d.getTime()))
+
+        if (datas.length === 0) {
+            throw new Error('Nenhuma data válida encontrada nos arquivos enviados.')
+        }
+
+        const minData = new Date(Math.min(...datas.map(d => d.getTime())))
+        const maxData = new Date(Math.max(...datas.map(d => d.getTime())))
+
+        // Expande o intervalo para cobrir o mês inteiro (início do primeiro mês até fim do último mês)
+        const inicioMes = new Date(Date.UTC(minData.getUTCFullYear(), minData.getUTCMonth(), 1, 0, 0, 0, 0))
+        const fimMes = new Date(Date.UTC(maxData.getUTCFullYear(), maxData.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+
+        console.log(`Período detectado: ${inicioMes.toISOString().split('T')[0]} → ${fimMes.toISOString().split('T')[0]}`)
+        console.log(`Apagando ${uniquePayload.length} registros antigos do período e reinserindo...`)
+
+        // Apaga apenas os registros do período dos arquivos enviados (preserva outros meses)
+        const { error: errDel } = await supabaseAdmin
+            .from('itens_clinicos')
+            .delete()
+            .gte('data_transferencia', inicioMes.toISOString())
+            .lte('data_transferencia', fimMes.toISOString())
+        if (errDel) throw new Error(`Falha ao limpar período: ${errDel.message}`)
+
+        // Insere os registros em batches
         const BATCH = 100
         let inserted = 0
         for (let i = 0; i < uniquePayload.length; i += BATCH) {
             const chunk = uniquePayload.slice(i, i + BATCH)
-            const { error } = await supabaseAdmin
-                .from('itens_clinicos')
-                .upsert(chunk, { onConflict: 'documento,unidade_origem,unidade_destino,produto_saida,data_transferencia', ignoreDuplicates: false })
+            const { error } = await supabaseAdmin.from('itens_clinicos').insert(chunk)
             if (error) {
-                console.error('Supabase upsert error:', error)
+                console.error('Supabase insert error:', error)
                 throw new Error(`Falha ao inserir itens: ${error.message}`)
             }
             inserted += chunk.length
@@ -236,14 +262,12 @@ export async function POST(req: Request) {
             total_saida: arquivosSaida.reduce((s, r) => s + (Number(r.valor_total) || 0), 0),
             total_entrada: arquivosEntrada.reduce((s, r) => s + (Number(r.valor_total) || 0), 0),
             total_divergencia: stats.valor_divergente,
-            data_referencia_arquivos: analise[0]?.data
-                ? new Date(analise[0].data).toISOString().split('T')[0]
-                : null,
+            data_referencia_arquivos: inicioMes.toISOString().split('T')[0],
         })
 
         return NextResponse.json({
             success: true,
-            message: `${inserted} itens únicos (de ${analise.length} analisados) consolidados no Banco RHC com sucesso.`,
+            message: `${inserted} itens de ${inicioMes.toISOString().slice(0,7)} inseridos no banco com sucesso (período anterior limpo).`,
         })
 
     } catch (error: any) {
