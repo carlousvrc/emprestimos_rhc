@@ -601,17 +601,17 @@ function DashboardInner() {
 
         <div className="relative z-10 flex flex-col gap-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-xs font-bold tracking-widest uppercase mb-2 w-fit">
-            <Sparkles size={14} className="text-[#E87722]" /> Visao Geral
+            <Sparkles size={14} className="text-[#E87722]" /> Visão Geral
           </div>
           <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight leading-tight">
-            Transferencias <span className="text-[#E87722]">Via Emprestimo</span>
+            Transferências <span className="text-[#E87722]">Via Empréstimo</span>
           </h1>
           <p className="text-white/70 text-sm md:text-base font-medium max-w-xl mt-2 leading-relaxed">
             Mapeamento Interativo com Filtros. Analisando{' '}
             <strong className="text-white bg-white/20 px-2 py-0.5 rounded-md">
               {filteredData.length} registros
             </strong>{' '}
-            de transferencias entre unidades.
+            de transferências entre unidades.
           </p>
           {periodoApurado && (
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-white/80 text-xs font-bold mt-2 w-fit">
@@ -681,7 +681,7 @@ function DashboardInner() {
                 onChange={(e) => setFilters({ dataInicio: e.target.value, page: 1 })}
                 className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-[#001A72] bg-white focus:outline-none focus:ring-2 focus:ring-[#001A72]/20 focus:border-[#001A72]/30"
               />
-              <span className="text-slate-400 text-xs font-bold">ate</span>
+              <span className="text-slate-400 text-xs font-bold">até</span>
               <input
                 type="date"
                 value={dataFim}
@@ -704,7 +704,7 @@ function DashboardInner() {
                 options={availableStatuses}
                 selected={statusFilter}
                 onChange={setStatusFilter}
-                placeholder="Status da Analise..."
+                placeholder="Status da Análise..."
               />
             </div>
             <div className="w-full sm:w-[260px]">
@@ -900,7 +900,7 @@ function DashboardInner() {
             <span className="text-2xl font-black text-purple-300">{metrics.crossPeriodCount}</span>
           </div>
           <div className="flex items-center justify-between pt-4 relative z-10">
-            <span className="text-xs font-bold text-[#E87722] uppercase tracking-widest">Tempo Medio</span>
+            <span className="text-xs font-bold text-[#E87722] uppercase tracking-widest">Tempo Médio</span>
             <span className="text-3xl font-black text-[#E87722]">
               {formatTempo(metrics.tempoMedio) !== '—' ? formatTempo(metrics.tempoMedio) : '0h'}
             </span>
@@ -1028,7 +1028,7 @@ function DashboardInner() {
                   }}
                   itemStyle={{ color: '#001A72', fontWeight: 900, fontSize: '15px' }}
                   formatter={(value: number | undefined) => [`${value ?? 0} movimentações`, '']}
-                  labelFormatter={(label: unknown) => `Mes: ${label}`}
+                  labelFormatter={(label: unknown) => `Mês: ${label}`}
                 />
                 <Area
                   type="monotone"
@@ -1271,7 +1271,7 @@ function DashboardInner() {
           {filteredData.length > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-8 py-5 border-t border-slate-100 bg-slate-50/50">
               <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
-                <span>Linhas por pagina:</span>
+                <span>Linhas por página:</span>
                 <div className="flex gap-1">
                   {PAGE_SIZES.map(s => (
                     <button
