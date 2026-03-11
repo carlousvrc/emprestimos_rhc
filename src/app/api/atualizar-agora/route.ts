@@ -232,6 +232,10 @@ export async function POST(req: Request) {
                     valor_entrada: item.val_entrada != null && item.val_entrada !== '' ? Number(item.val_entrada) : null,
                     diferenca_financeira: item.dif_val != null && item.dif_val !== '' ? Number(item.dif_val) : null,
                     diferenca_quantidade: item.dif_qtd != null && item.dif_qtd !== '' ? Number(item.dif_qtd) : null,
+                    tipo_divergencia: item.tipo_div ? String(item.tipo_div) : null,
+                    qualidade_match: item.qualidade_match ? String(item.qualidade_match) : null,
+                    especie: item.especie ? String(item.especie) : null,
+                    observacoes: item.obs ? String(item.obs) : null,
                 });
             }
         }

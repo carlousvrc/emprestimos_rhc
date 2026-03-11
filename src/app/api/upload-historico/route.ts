@@ -195,12 +195,16 @@ export async function POST(req: Request) {
             qtd_saida: Number(item.qtd_saida || 0),
             qtd_entrada: Number(item.qtd_entrada || 0),
             valor_saida: Number(item.val_saida || 0),
-            valor_entrada: Number(item.val_entrada || 0),
-            diferenca_financeira: Number(item.dif_val || 0),
-            diferenca_quantidade: Number(item.dif_qtd || 0),
+            valor_entrada: item.val_entrada != null ? Number(item.val_entrada) : null,
+            diferenca_financeira: item.dif_val != null ? Number(item.dif_val) : null,
+            diferenca_quantidade: item.dif_qtd != null ? Number(item.dif_qtd) : null,
             data_recebimento: item.data_entrada ? new Date(item.data_entrada).toISOString() : null,
             tempo_recebimento: Number(item.tempo_recebimento || 0),
             status_item: statusMap[item.status] ?? item.status?.toLowerCase() ?? 'pendente',
+            tipo_divergencia: item.tipo_div ? String(item.tipo_div) : null,
+            qualidade_match: item.qualidade_match ? String(item.qualidade_match) : null,
+            especie: item.especie ? String(item.especie) : null,
+            observacoes: item.obs ? String(item.obs) : null,
         }))
 
         // Deduplica pelo mesmo critério da constraint única (evita "cannot affect row a second time")

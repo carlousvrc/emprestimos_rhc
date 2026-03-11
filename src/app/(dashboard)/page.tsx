@@ -44,6 +44,10 @@ interface ItemClinico {
   diferenca_quantidade?: number
   data_recebimento?: string
   tempo_recebimento?: number
+  tipo_divergencia?: string
+  qualidade_match?: string
+  especie?: string
+  observacoes?: string
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -227,6 +231,8 @@ function computeMetrics(filteredData: ItemClinico[]) {
   let iConf = 0, iNConf = 0, iPend = 0
   let entradasInf = 0, somaTempos = 0, countTempos = 0, divQtd = 0
   let crossPeriodCount = 0
+  let divValor = 0, divQtdCount = 0, divMista = 0
+  let matchExcelente = 0, matchBom = 0, matchRazoavel = 0
 
   filteredData.forEach(item => {
     const vS = item.valor_saida != null ? Number(item.valor_saida) : null
@@ -240,11 +246,14 @@ function computeMetrics(filteredData: ItemClinico[]) {
     if (hasValorSaida) tSaida += vS!
     if (hasValorSaida && vE !== null && !isNaN(vE)) tEntrada += vE
 
-    // Recebimento inferior: quantidade recebida menor que enviada
     if (qe > 0 && qe < qs) entradasInf++
-
-    // Tempo médio real de recebimento (em horas)
     if (tr > 0) { somaTempos += tr; countTempos++ }
+
+    // Qualidade do match
+    const qm = String(item.qualidade_match || '')
+    if (qm.includes('Excelente')) matchExcelente++
+    else if (qm.includes('Bom')) matchBom++
+    else if (qm.includes('Razoável') || qm.includes('Razoavel')) matchRazoavel++
 
     if (statusLower.includes('não recebido')) {
       if (hasValorSaida) tPendente += vS!
@@ -256,9 +265,17 @@ function computeMetrics(filteredData: ItemClinico[]) {
       const dif = typeof item.diferenca_financeira === 'number' ? item.diferenca_financeira : 0
       tDivergencia += Math.abs(dif)
       divQtd += Math.abs(Number(item.diferenca_quantidade || 0))
+
+      // Tipo de divergência
+      const td = String(item.tipo_divergencia || '').toLowerCase()
+      const temValor = td.includes('valor')
+      const temQtd = td.includes('qtd') || td.includes('quantidade')
+      if (temValor && temQtd) divMista++
+      else if (temValor) divValor++
+      else if (temQtd) divQtdCount++
     }
 
-    // Cross-period detection
+    // Cross-period
     if (item.data_recebimento) {
       const dTransf = parseLocalDate(item.data_transferencia)
       const dReceb = parseLocalDate(item.data_recebimento)
@@ -288,6 +305,12 @@ function computeMetrics(filteredData: ItemClinico[]) {
     taxaRecuperacao,
     saldo,
     crossPeriodCount,
+    divValor,
+    divQtdCount,
+    divMista,
+    matchExcelente,
+    matchBom,
+    matchRazoavel,
   }
 }
 
@@ -308,8 +331,31 @@ function StatusBadge({ status }: { status: string }) {
 
 function TipoBadge({ tipo }: { tipo?: 'interno' | 'externo' }) {
   if (tipo === 'externo')
-    return <span className="inline-flex text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Externo ↩</span>
-  return <span className="inline-flex text-[#001A72] bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">Interno</span>
+    return <span className="inline-flex text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Externo ↩</span>
+  return <span className="inline-flex text-[#001A72] bg-blue-50 border border-blue-100 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">Interno</span>
+}
+
+function QualidadeBadge({ qualidade }: { qualidade?: string }) {
+  if (!qualidade || qualidade === '-') return null
+  if (qualidade.includes('Excelente'))
+    return <span className="inline-flex items-center gap-0.5 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md text-[10px] font-bold">⭐⭐⭐ Excelente</span>
+  if (qualidade.includes('Bom'))
+    return <span className="inline-flex items-center gap-0.5 text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md text-[10px] font-bold">⭐⭐ Bom</span>
+  if (qualidade.includes('Razoável') || qualidade.includes('Razoavel'))
+    return <span className="inline-flex items-center gap-0.5 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md text-[10px] font-bold">⭐ Razoável</span>
+  return null
+}
+
+function TipoDivBadge({ tipo }: { tipo?: string }) {
+  if (!tipo || tipo === '-') return <span className="text-slate-300 text-xs">—</span>
+  if (tipo.toLowerCase().includes('valor') && (tipo.toLowerCase().includes('qtd') || tipo.toLowerCase().includes('quantidade')))
+    return <span className="inline-flex text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Valor + Qtd</span>
+  if (tipo.toLowerCase().includes('valor'))
+    return <span className="inline-flex text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Div. Valor</span>
+  if (tipo.toLowerCase().includes('qtd') || tipo.toLowerCase().includes('quantidade'))
+    return <span className="inline-flex text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">Div. Qtd</span>
+  // Outros motivos (Item não encontrado, Entrada órfã, etc.)
+  return <span className="inline-flex text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md text-[10px] font-bold max-w-[140px] truncate" title={tipo}>{tipo}</span>
 }
 
 // ─── Cross-period helper ──────────────────────────────────────────────────────
@@ -856,54 +902,131 @@ function DashboardInner() {
         <div className="w-8 h-8 rounded-lg bg-[#E87722]/10 text-[#E87722] flex items-center justify-center">
           <Activity size={18} strokeWidth={3} />
         </div>
-        Desempenho Operacional Resumido
+        Desempenho Operacional
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col justify-center relative overflow-hidden">
-          <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-2">Registros no Filtro</p>
-          <h4 className="text-6xl font-black text-[#001A72] tracking-tighter truncate">
-            {metrics.itensProcessados.toLocaleString('pt-BR')}
-          </h4>
-          <p className="text-sm font-bold text-slate-500 mt-2">registros com os filtros atuais</p>
+      {/* Row 1: Status geral */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col gap-1">
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Total no Filtro</p>
+          <p className="text-4xl font-black text-[#001A72]">{metrics.itensProcessados.toLocaleString('pt-BR')}</p>
+          <p className="text-xs font-bold text-slate-400">registros analisados</p>
+        </div>
+        <div className="bg-emerald-50 p-6 rounded-[1.5rem] border border-emerald-100 flex flex-col gap-1">
+          <p className="text-emerald-700/60 text-[10px] font-black uppercase tracking-widest">Conformes</p>
+          <p className="text-4xl font-black text-emerald-700">{metrics.conformes.toLocaleString('pt-BR')}</p>
+          <p className="text-xs font-bold text-emerald-600">
+            {metrics.itensProcessados > 0 ? ((metrics.conformes / metrics.itensProcessados) * 100).toFixed(1) : 0}% do total
+          </p>
+        </div>
+        <div className="bg-red-50 p-6 rounded-[1.5rem] border border-red-100 flex flex-col gap-1">
+          <p className="text-red-500/70 text-[10px] font-black uppercase tracking-widest">Não Conformes</p>
+          <p className="text-4xl font-black text-red-600">{metrics.naoConformes.toLocaleString('pt-BR')}</p>
+          <p className="text-xs font-bold text-red-500">
+            {metrics.itensProcessados > 0 ? ((metrics.naoConformes / metrics.itensProcessados) * 100).toFixed(1) : 0}% do total
+          </p>
+        </div>
+        <div className="bg-orange-50 p-6 rounded-[1.5rem] border border-orange-100 flex flex-col gap-1">
+          <p className="text-orange-700/60 text-[10px] font-black uppercase tracking-widest">Não Recebidos</p>
+          <p className="text-4xl font-black text-[#85400d]">{metrics.itensPendentes.toLocaleString('pt-BR')}</p>
+          <p className="text-xs font-bold text-orange-600">
+            {metrics.itensProcessados > 0 ? ((metrics.itensPendentes / metrics.itensProcessados) * 100).toFixed(1) : 0}% do total
+          </p>
+        </div>
+      </div>
+
+      {/* Row 2: Detalhamento de divergências + qualidade */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Breakdown de divergências */}
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.03)] p-6 flex flex-col gap-4">
+          <h3 className="text-base font-black text-[#001A72]">Tipo de Divergência</h3>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-red-500 shrink-0" />
+              <div className="flex-1">
+                <div className="flex justify-between text-sm font-bold mb-1">
+                  <span className="text-slate-600">Divergência de Valor</span>
+                  <span className="text-red-600">{metrics.divValor}</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="bg-red-500 h-2 rounded-full transition-all" style={{ width: `${metrics.naoConformes > 0 ? (metrics.divValor / metrics.naoConformes) * 100 : 0}%` }} />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-orange-500 shrink-0" />
+              <div className="flex-1">
+                <div className="flex justify-between text-sm font-bold mb-1">
+                  <span className="text-slate-600">Divergência de Quantidade</span>
+                  <span className="text-orange-600">{metrics.divQtdCount}</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="bg-orange-500 h-2 rounded-full transition-all" style={{ width: `${metrics.naoConformes > 0 ? (metrics.divQtdCount / metrics.naoConformes) * 100 : 0}%` }} />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-purple-500 shrink-0" />
+              <div className="flex-1">
+                <div className="flex justify-between text-sm font-bold mb-1">
+                  <span className="text-slate-600">Valor + Quantidade</span>
+                  <span className="text-purple-600">{metrics.divMista}</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${metrics.naoConformes > 0 ? (metrics.divMista / metrics.naoConformes) * 100 : 0}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-xl p-3 text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Receb. Inferior</p>
+              <p className="text-2xl font-black text-slate-700">{metrics.entradasInferiores}</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3 text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tempo Médio</p>
+              <p className="text-2xl font-black text-[#E87722]">{formatTempo(metrics.tempoMedio) !== '—' ? formatTempo(metrics.tempoMedio) : '0h'}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-[#f0fdf4] p-6 rounded-3xl border border-emerald-100 flex flex-col justify-center items-center text-center">
-            <p className="text-emerald-600/70 text-[10px] font-black uppercase tracking-widest mb-2">Conformes</p>
-            <p className="text-4xl font-black text-emerald-700">{metrics.conformes.toLocaleString('pt-BR')}</p>
-          </div>
-          <div className="bg-[#fef2f2] p-6 rounded-3xl border border-red-100 flex flex-col justify-center items-center text-center">
-            <p className="text-red-500/70 text-[10px] font-black uppercase tracking-widest mb-2">Divergentes</p>
-            <p className="text-4xl font-black text-red-600">{metrics.naoConformes.toLocaleString('pt-BR')}</p>
-          </div>
-          <div className="bg-[#fff7ed] p-6 rounded-3xl border border-orange-100 flex flex-col justify-center items-center text-center col-span-2">
-            <p className="text-orange-900/60 text-xs font-black uppercase tracking-widest">Não Recebidos</p>
-            <p className="text-3xl font-black text-[#85400d]">{metrics.itensPendentes.toLocaleString('pt-BR')}</p>
-          </div>
-        </div>
-
-        <div className="bg-[#001A72] text-white p-8 rounded-[2rem] shadow-xl shadow-[#001A72]/20 flex flex-col justify-between relative overflow-hidden">
+        {/* Qualidade do match */}
+        <div className="bg-[#001A72] rounded-[2rem] shadow-xl shadow-[#001A72]/20 p-6 flex flex-col gap-4 relative overflow-hidden">
           <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="flex items-center justify-between border-b border-white/10 pb-4 relative z-10">
-            <span className="text-xs font-bold text-white/50 uppercase tracking-widest">Recebimento Inferior</span>
-            <span className="text-2xl font-black">{metrics.entradasInferiores}</span>
+          <h3 className="text-base font-black text-white relative z-10">Qualidade do Match</h3>
+          <div className="space-y-3 relative z-10">
+            {[
+              { label: '⭐⭐⭐ Excelente', value: metrics.matchExcelente, color: 'bg-emerald-400', text: 'text-emerald-300' },
+              { label: '⭐⭐ Bom', value: metrics.matchBom, color: 'bg-blue-400', text: 'text-blue-300' },
+              { label: '⭐ Razoável', value: metrics.matchRazoavel, color: 'bg-amber-400', text: 'text-amber-300' },
+            ].map(({ label, value, color, text }) => {
+              const total = metrics.matchExcelente + metrics.matchBom + metrics.matchRazoavel
+              const pct = total > 0 ? (value / total) * 100 : 0
+              return (
+                <div key={label} className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <span className="text-white/70">{label}</span>
+                      <span className={text}>{value} ({pct.toFixed(0)}%)</span>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-2">
+                      <div className={`${color} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-          <div className="flex items-center justify-between border-b border-white/10 py-4 relative z-10">
-            <span className="text-xs font-bold text-white/50 uppercase tracking-widest">Qtd. Divergente</span>
-            <span className="text-2xl font-black">{metrics.divergenciaQuantidade}</span>
-          </div>
-          <div className="flex items-center justify-between border-b border-white/10 py-4 relative z-10">
-            <span className="text-xs font-bold text-purple-300 uppercase tracking-widest flex items-center gap-1.5">
-              <ArrowLeftRight size={13} /> Entre Períodos
-            </span>
-            <span className="text-2xl font-black text-purple-300">{metrics.crossPeriodCount}</span>
-          </div>
-          <div className="flex items-center justify-between pt-4 relative z-10">
-            <span className="text-xs font-bold text-[#E87722] uppercase tracking-widest">Tempo Médio</span>
-            <span className="text-3xl font-black text-[#E87722]">
-              {formatTempo(metrics.tempoMedio) !== '—' ? formatTempo(metrics.tempoMedio) : '0h'}
-            </span>
+          <div className="relative z-10 pt-3 border-t border-white/10 grid grid-cols-2 gap-3">
+            <div className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Entre Períodos</p>
+              <p className="text-2xl font-black text-purple-300">{metrics.crossPeriodCount}</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Δ Financeira</p>
+              <p className="text-xl font-black text-[#E87722]">{formatCurrency(metrics.divergencias)}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -1165,25 +1288,29 @@ function DashboardInner() {
 
         <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.03)] border border-slate-100 overflow-hidden mb-4">
           <div className="overflow-x-auto">
-            <Table className="min-w-[1100px]">
+            <Table className="min-w-[1500px]">
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="border-b border-slate-100 hover:bg-transparent">
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-8 text-xs uppercase tracking-widest w-[120px]">Data</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-6 text-xs uppercase tracking-widest w-[110px]">Data</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Origem</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Destino</TableHead>
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Tipo</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Documento</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest">Produto (Saída → Entrada)</TableHead>
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Saída</TableHead>
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Hora Entrada</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Qtd Saída</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Qtd Entrada</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Dif. Qtd</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest text-right">Valor Saída</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest text-right">Dif. R$</TableHead>
                   <TableHead className="font-extrabold text-slate-400 py-6 px-3 text-xs uppercase tracking-widest text-center">Tempo</TableHead>
-                  <TableHead className="font-extrabold text-slate-400 py-6 px-8 text-xs uppercase tracking-widest text-right">Status</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest text-center">Divergência</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-4 text-xs uppercase tracking-widest text-center">Match</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 py-6 px-6 text-xs uppercase tracking-widest text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-20 text-center">
+                    <TableCell colSpan={14} className="py-20 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
                           <FileText size={24} className="text-slate-300" />
@@ -1197,67 +1324,126 @@ function DashboardInner() {
                   paginatedData.map((row, idx) => {
                     const rowIsCrossPeriod = isCrossPeriod(row)
                     const rowBg = getRowBg(row.status_item)
+                    const difQtd = row.diferenca_quantidade
+                    const difVal = row.diferenca_financeira
                     return (
                       <TableRow key={idx} className={`border-b border-slate-50 hover:bg-[#F8FAFC] transition-colors ${rowBg}`}>
-                        <TableCell className="py-5 px-8">
+                        {/* Data */}
+                        <TableCell className="py-4 px-6">
                           <div className="flex items-center gap-1.5">
-                            <div className="font-bold text-slate-600 bg-slate-100/50 inline-block px-3 py-1.5 rounded-lg text-xs">
+                            <div className="font-bold text-slate-600 bg-slate-100/50 inline-block px-2.5 py-1 rounded-lg text-xs">
                               {formatDate(row.data_transferencia || row.created_at || '')}
                             </div>
                             {rowIsCrossPeriod && (
                               <span title="Movimentação entre períodos" className="text-purple-500">
-                                <CalendarIcon size={13} />
+                                <CalendarIcon size={12} />
                               </span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="font-bold text-[#001A72] py-5 px-4">{row.unidade_origem}</TableCell>
-                        <TableCell className="font-bold text-[#001A72] py-5 px-4">
-                          <div className="flex items-center gap-2">
+                        {/* Origem */}
+                        <TableCell className="font-bold text-[#001A72] py-4 px-4 text-sm">{row.unidade_origem}</TableCell>
+                        {/* Destino */}
+                        <TableCell className="font-bold text-[#001A72] py-4 px-4 text-sm">
+                          <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#E87722] shrink-0" />
                             {row.unidade_destino}
                           </div>
                         </TableCell>
-                        <TableCell className="py-5 px-4">
-                          <TipoBadge tipo={row.tipo_movimentacao} />
-                        </TableCell>
-                        <TableCell className="font-mono text-sm font-bold text-slate-400 py-5 px-4">{row.documento}</TableCell>
-                        <TableCell className="py-5 px-4">
+                        {/* Documento */}
+                        <TableCell className="font-mono text-xs font-bold text-slate-400 py-4 px-4">{row.documento}</TableCell>
+                        {/* Produto */}
+                        <TableCell className="py-4 px-4">
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-slate-800 font-bold text-sm truncate max-w-[220px]" title={row.produto_saida}>
+                            <span className="text-slate-800 font-bold text-sm truncate max-w-[200px]" title={row.produto_saida}>
                               {row.produto_saida}
                             </span>
-                            <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 truncate max-w-[220px]" title={row.produto_entrada}>
-                              ↳ {row.produto_entrada || '—'}
-                            </span>
-                            {(row.valor_saida != null || row.valor_entrada != null) && (
-                              <span className="flex items-center gap-1 mt-0.5">
-                                <span className="text-[11px] font-semibold text-blue-500">{formatCurrency(row.valor_saida || 0)}</span>
-                                <span className="text-[11px] text-slate-300">→</span>
-                                <span className={`text-[11px] font-semibold ${
-                                  row.valor_entrada != null && row.valor_entrada < (row.valor_saida || 0)
-                                    ? 'text-red-400'
-                                    : 'text-emerald-500'
-                                }`}>
-                                  {row.valor_entrada != null ? formatCurrency(row.valor_entrada) : '—'}
-                                </span>
+                            {row.produto_entrada && row.produto_entrada !== '-' && (
+                              <span className="text-slate-400 font-semibold text-xs flex items-center gap-1 truncate max-w-[200px]" title={row.produto_entrada}>
+                                ↳ {row.produto_entrada}
+                              </span>
+                            )}
+                            {row.especie && (
+                              <span className="text-[10px] font-bold text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded-md inline-block mt-0.5 w-fit">
+                                {row.especie}
                               </span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="py-5 px-3 text-center">
-                          <span className="font-mono text-xs font-bold text-slate-500">{formatTime(row.data_transferencia)}</span>
+                        {/* Qtd Saída */}
+                        <TableCell className="py-4 px-3 text-center">
+                          <span className="font-bold text-blue-600 text-sm">{row.qtd_saida ?? '—'}</span>
                         </TableCell>
-                        <TableCell className="py-5 px-3 text-center">
-                          <span className="font-mono text-xs font-bold text-slate-500">{formatTime(row.data_recebimento)}</span>
+                        {/* Qtd Entrada */}
+                        <TableCell className="py-4 px-3 text-center">
+                          <span className={`font-bold text-sm ${
+                            row.qtd_entrada == null ? 'text-slate-300' :
+                            row.qtd_entrada < (row.qtd_saida || 0) ? 'text-red-500' : 'text-emerald-600'
+                          }`}>{row.qtd_entrada ?? '—'}</span>
                         </TableCell>
-                        <TableCell className="py-5 px-3 text-center">
+                        {/* Dif Qtd */}
+                        <TableCell className="py-4 px-3 text-center">
+                          {difQtd != null && difQtd !== 0 ? (
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
+                              difQtd < 0 ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'
+                            }`}>
+                              {difQtd > 0 ? '+' : ''}{difQtd}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-xs font-bold">—</span>
+                          )}
+                        </TableCell>
+                        {/* Valor Saída */}
+                        <TableCell className="py-4 px-4 text-right">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="font-bold text-[#001A72] text-sm">{formatCurrency(row.valor_saida || 0)}</span>
+                            {row.valor_entrada != null && (
+                              <span className="text-[11px] font-semibold text-slate-400">{formatCurrency(row.valor_entrada)}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        {/* Dif Financeira */}
+                        <TableCell className="py-4 px-4 text-right">
+                          {difVal != null && difVal !== 0 ? (
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
+                              difVal < 0 ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
+                            }`}>
+                              {difVal > 0 ? '+' : ''}{formatCurrency(difVal)}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-xs font-bold">—</span>
+                          )}
+                        </TableCell>
+                        {/* Tempo */}
+                        <TableCell className="py-4 px-3 text-center">
                           <span className={`font-mono text-xs font-bold ${
                             (row.tempo_recebimento || 0) > 48 ? 'text-red-500' : (row.tempo_recebimento || 0) > 24 ? 'text-amber-500' : 'text-emerald-600'
                           }`}>{formatTempo(row.tempo_recebimento)}</span>
                         </TableCell>
-                        <TableCell className="py-5 px-8 text-right">
-                          <StatusBadge status={row.status_item} />
+                        {/* Tipo Divergência */}
+                        <TableCell className="py-4 px-4 text-center">
+                          {row.tipo_divergencia
+                            ? <TipoDivBadge tipo={row.tipo_divergencia} />
+                            : <span className="text-slate-300 text-xs font-bold">—</span>
+                          }
+                        </TableCell>
+                        {/* Qualidade Match */}
+                        <TableCell className="py-4 px-4 text-center">
+                          {row.qualidade_match
+                            ? <QualidadeBadge qualidade={row.qualidade_match} />
+                            : <span className="text-slate-300 text-xs font-bold">—</span>
+                          }
+                        </TableCell>
+                        {/* Status */}
+                        <TableCell className="py-4 px-6 text-right">
+                          <div className="flex flex-col items-end gap-1">
+                            <StatusBadge status={row.status_item} />
+                            {row.observacoes && (
+                              <span className="text-[10px] text-slate-400 font-medium max-w-[120px] text-right leading-tight" title={row.observacoes}>
+                                {row.observacoes.length > 40 ? row.observacoes.slice(0, 40) + '…' : row.observacoes}
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     )
