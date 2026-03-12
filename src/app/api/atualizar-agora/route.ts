@@ -178,6 +178,9 @@ export async function POST(req: Request) {
         for (const group of emailGroups) {
             const { saida, entrada, primeiraData } = parseAttachmentsFromEmail(group.attachments);
 
+            console.log(`[Email UID=${group.emailUid}] Arquivos: ${group.attachments.map(a => a.filename).join(', ')}`);
+            console.log(`[Email UID=${group.emailUid}] Linhas lidas → saída: ${saida.length}, entrada: ${entrada.length}`);
+
             if (saida.length === 0 && entrada.length === 0) {
                 console.warn(`[Email UID=${group.emailUid}] Ignorado: nenhum arquivo reconhecido como Saída ou Entrada.`);
                 continue;
@@ -185,8 +188,15 @@ export async function POST(req: Request) {
 
             if (!primeiraDataGlobal && primeiraData) primeiraDataGlobal = primeiraData;
 
+            const saidaAgr = agregarAnaliseRows(saida);
+            const entradaAgr = agregarAnaliseRows(entrada);
+            console.log(`[Email UID=${group.emailUid}] Após agregação → saída: ${saidaAgr.length}, entrada: ${entradaAgr.length}`);
+
             // 3. Análise de correspondência por email
-            const { analise, stats } = analisarItens(agregarAnaliseRows(saida), agregarAnaliseRows(entrada));
+            const { analise, stats } = analisarItens(saidaAgr, entradaAgr);
+            console.log(`[Email UID=${group.emailUid}] Análise → conformes: ${stats.conformes}, não conformes: ${stats.nao_conformes}, não recebidos: ${stats.nao_encontrados}, total analise: ${analise.length}`);
+            const orfaos = analise.filter(i => i.obs === 'Entrada órfã');
+            if (orfaos.length > 0) console.log(`[Email UID=${group.emailUid}] Órfãos (entrada sem saída): ${orfaos.length} | ex: doc=${orfaos[0].doc} prod=${orfaos[0].prod_entrada} val=${orfaos[0].val_entrada}`);
             totalAnalisados += analise.length;
 
             statsAcum.conformes += stats.conformes;
@@ -259,6 +269,7 @@ export async function POST(req: Request) {
                 uniqueRecordsMap.set(key, record);
             }
             const uniqueSupabaseRecords = Array.from(uniqueRecordsMap.values());
+            console.log(`[Dedup] supabaseRecords brutos: ${supabaseRecords.length} → únicos após dedup: ${uniqueSupabaseRecords.length}`);
 
             // Determina o intervalo de datas coberto pelos registros processados
             const datas = uniqueSupabaseRecords
