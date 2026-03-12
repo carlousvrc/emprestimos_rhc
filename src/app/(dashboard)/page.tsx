@@ -244,7 +244,7 @@ function computeMetrics(filteredData: ItemClinico[]) {
     const hasValorSaida = vS !== null && !isNaN(vS)
 
     if (hasValorSaida) tSaida += vS!
-    if (hasValorSaida && vE !== null && !isNaN(vE)) tEntrada += vE
+    if (vE !== null && !isNaN(vE)) tEntrada += vE
 
     if (qe > 0 && qe < qs) entradasInf++
     if (tr > 0) { somaTempos += tr; countTempos++ }
