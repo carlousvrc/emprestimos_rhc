@@ -260,24 +260,29 @@ export async function POST(req: Request) {
             }
             const uniqueSupabaseRecords = Array.from(uniqueRecordsMap.values());
 
-            if (sinceDate && beforeDate) {
-                // Sync de período específico: apaga só os registros daquele período e reinsere
-                // Preserva dados de outros meses no banco
+            // Determina o intervalo de datas coberto pelos registros processados
+            const datas = uniqueSupabaseRecords
+                .map(r => r.data_transferencia ? new Date(r.data_transferencia) : null)
+                .filter((d): d is Date => d !== null && !isNaN(d.getTime()));
+
+            const deleteStart = sinceDate ?? (datas.length > 0
+                ? new Date(Date.UTC(Math.min(...datas.map(d => d.getUTCFullYear())), Math.min(...datas.map(d => d.getUTCMonth())), 1))
+                : null);
+            const deleteEnd = beforeDate ?? (datas.length > 0
+                ? new Date(Date.UTC(Math.max(...datas.map(d => d.getUTCFullYear())), Math.max(...datas.map(d => d.getUTCMonth())) + 1, 0, 23, 59, 59, 999))
+                : null);
+
+            if (deleteStart && deleteEnd) {
+                // Apaga apenas o período coberto pelos dados — preserva outros meses
                 const { error: errDel } = await supabaseAdmin
                     .from('itens_clinicos')
                     .delete()
-                    .gte('data_transferencia', sinceDate.toISOString())
-                    .lte('data_transferencia', beforeDate.toISOString())
+                    .gte('data_transferencia', deleteStart.toISOString())
+                    .lte('data_transferencia', deleteEnd.toISOString())
                 if (errDel) throw new Error(`Falha ao limpar período: ${errDel.message}`);
-                console.log(`Período ${sinceDate.toISOString().split('T')[0]} → ${beforeDate.toISOString().split('T')[0]} limpo. Inserindo ${uniqueSupabaseRecords.length} registros...`);
+                console.log(`Período ${deleteStart.toISOString().split('T')[0]} → ${deleteEnd.toISOString().split('T')[0]} limpo. Inserindo ${uniqueSupabaseRecords.length} registros...`);
             } else {
-                // Sync normal: full refresh (apaga tudo e reinsere)
-                const { error: errDelete } = await supabaseAdmin
-                    .from('itens_clinicos')
-                    .delete()
-                    .neq('id', '00000000-0000-0000-0000-000000000000')
-                if (errDelete) throw new Error(`Falha ao limpar itens_clinicos: ${errDelete.message}`);
-                console.log(`Tabela limpa. Inserindo ${uniqueSupabaseRecords.length} registros...`);
+                console.warn('Não foi possível determinar intervalo de datas — nenhum registro será removido antes da inserção.');
             }
 
             const BATCH_SIZE = 100;
