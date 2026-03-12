@@ -86,10 +86,10 @@ function rowToAnaliseRow(row: any): AnaliseRow {
         ds_produto: String(row['Ds Produto'] || row['Produto'] || row['ds_produto'] || ''),
         especie: String(row['Ds Especie'] || row['Especie'] || row['especie'] || ''),
         valor_total: parseValorNumerico(
-            row['Total'] ?? row['Valor Total'] ?? row['valor_total'] ?? 0
+            row['Total'] || row['Valor Total'] || row['valor_total'] || row['vl_total'] || 0
         ),
         qt_entrada: parseValorNumerico(
-            row['Qt Entrada'] ?? row['Qtd'] ?? row['Qtd Entrada'] ?? row['qt_entrada'] ?? 0
+            row['Qt Entrada'] || row['Qtd'] || row['Qtd Entrada'] || row['qt_entrada'] || 0
         ),
     }
 }

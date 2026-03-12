@@ -98,8 +98,8 @@ function parseAttachmentsFromEmail(attachments: { filename: string; content: Buf
                 documento: String(row['Documento'] || row['Nro Doc'] || row['documento'] || ''),
                 ds_produto: String(row['Ds Produto'] || row['Produto'] || row['ds_produto'] || ''),
                 especie: String(row['Ds Especie'] || row['Especie'] || row['especie'] || ''),
-                valor_total: parseValor(row['Total'] ?? row['Valor Total'] ?? row['valor_total'] ?? 0),
-                qt_entrada: parseValor(row['Qt Entrada'] ?? row['Qtd'] ?? row['Qtd Entrada'] ?? row['qt_entrada'] ?? 0)
+                valor_total: parseValor(row['Total'] || row['Valor Total'] || row['valor_total'] || row['vl_total'] || 0),
+                qt_entrada: parseValor(row['Qt Entrada'] || row['Qtd'] || row['Qtd Entrada'] || row['qt_entrada'] || 0)
             };
 
             if (isSaida && !isEntrada) saida.push(obj);
