@@ -210,7 +210,7 @@ export async function POST(req: Request) {
         // Deduplica pelo mesmo critério da constraint única (evita "cannot affect row a second time")
         const dedupeMap = new Map<string, typeof payload[0]>()
         for (const record of payload) {
-            const key = `${record.documento}|${record.unidade_origem}|${record.unidade_destino}|${record.produto_saida}|${record.produto_entrada ?? ''}`
+            const key = `${record.documento}|${record.unidade_origem}|${record.unidade_destino}|${record.produto_saida}|${record.produto_entrada ?? ''}|${record.data_transferencia ?? ''}`
             dedupeMap.set(key, record)
         }
         const uniquePayload = Array.from(dedupeMap.values())

@@ -255,7 +255,7 @@ export async function POST(req: Request) {
             // Deduplica pelo business key (último valor vence dentro do mesmo sync)
             const uniqueRecordsMap = new Map<string, any>();
             for (const record of supabaseRecords) {
-                const key = `${record.documento}|${record.unidade_origem}|${record.unidade_destino}|${record.produto_saida}|${record.produto_entrada ?? ''}`;
+                const key = `${record.documento}|${record.unidade_origem}|${record.unidade_destino}|${record.produto_saida}|${record.produto_entrada ?? ''}|${record.data_transferencia ?? ''}`;
                 uniqueRecordsMap.set(key, record);
             }
             const uniqueSupabaseRecords = Array.from(uniqueRecordsMap.values());
