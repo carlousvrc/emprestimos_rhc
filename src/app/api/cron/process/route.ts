@@ -81,8 +81,8 @@ export async function GET(request: Request) {
                     const sheetName = workbook.SheetNames[0];
                     const records = xlsx.utils.sheet_to_json<any>(workbook.Sheets[sheetName]);
 
-                    // === MOCKUP DA ENGINE DE PROCESSAMENTO E CONSOLIDAÇÃO ===
-                    // Lógica similar Python auto_analise.py (Processando itens clínicos e calculando match/divergência)
+                    // === ENGINE DE PROCESSAMENTO E CONSOLIDAÇÃO ===
+                    // Processa itens clínicos e calcula correspondências/divergências via TypeScript
                     let totalItens = records.length;
                     let totalSaida = 0;
                     let conformes = 0;

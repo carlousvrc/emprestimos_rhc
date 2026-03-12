@@ -20,7 +20,7 @@ export interface AnaliseRow {
     [key: string]: any
 }
 
-// ---------- Hospital normalization (mirrors analise_core._normalizar_hospital) ----------
+// ---------- Normalização de nomes de hospitais (de-para da Rede Casa) ----------
 const HOSPITAL_DE_PARA: Record<string, string> = {
     'CASA DE PORTUGAL': 'HOSPITAL CASA DE PORTUGAL',
     'CASA DE PORTUGAL - REDE CASA': 'HOSPITAL CASA DE PORTUGAL',
@@ -58,6 +58,37 @@ function normalizarHospital(nome: string): string {
     return HOSPITAL_DE_PARA[nomeNorm] ?? nomeNorm
 }
 
+// ---------- Classificação Interno / Externo ----------
+// Conjunto dos nomes canônicos de todas as unidades da Rede Casa.
+// Unidades cujo nome normalizado NÃO estiver neste conjunto são consideradas Externas
+// (outros hospitais de fora da rede que emprestam materiais/medicamentos para devolução).
+export const UNIDADES_INTERNAS = new Set<string>([
+    'HOSPITAL CASA DE PORTUGAL',
+    'HOSPITAL CASA MENSSANA',
+    'HOSPITAL CASA EVANGELICO',
+    'HOSPITAL CASA RIO LARANJEIRAS',
+    'HOSPITAL CASA RIO BOTAFOGO',
+    'HOSPITAL CASA SANTA CRUZ',
+    'HOSPITAL CASA SAO BERNARDO',
+    'HOSPITAL CASA PREMIUM',
+    'HOSPITAL CASA ILHA DO GOVERNADOR',
+])
+
+/**
+ * Classifica uma movimentação como 'interno' ou 'externo'.
+ * Interno  → ambas as unidades pertencem à Rede Casa.
+ * Externo  → ao menos uma unidade é de fora da rede (requer devolução futura).
+ */
+export function classificarMovimentacao(
+    unidadeOrigem: string,
+    unidadeDestino: string
+): 'interno' | 'externo' {
+    const norm = (s: string) => String(s || '').toUpperCase().trim()
+    const origemInterna = UNIDADES_INTERNAS.has(norm(unidadeOrigem))
+    const destinoInterno = UNIDADES_INTERNAS.has(norm(unidadeDestino))
+    return origemInterna && destinoInterno ? 'interno' : 'externo'
+}
+
 // ---------- Wrapper to prepare rows (mirrors preparar_dataframe) ----------
 export function prepararRows(rows: AnaliseRow[]): AnaliseRow[] {
     return rows
@@ -70,7 +101,7 @@ export function prepararRows(rows: AnaliseRow[]): AnaliseRow[] {
         .filter(r => !r.unidade_origem.includes('OFTALMOCASA') && !r.unidade_destino.includes('OFTALMOCASA'))
 }
 
-// Emulates Pandas row transformation and mapping
+// Analisa pares Saída/Entrada por Fuzzy Matching e retorna resultado + estatísticas
 export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow[], limiarSimilaridade = 65) {
     // Apply normalization first (mirrors preparar_dataframe)
     const dfSaida = prepararRows(dfSaidaRaw)
@@ -274,7 +305,7 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
 
             const conformeQtd = Math.abs(diferencaQtd) < 0.01
 
-            // Mirror Python: max(10, valor_s * 0.10) tolerance
+            // Tolerância financeira: max(R$10, 10% do valor de saída)
             let conformeValor: boolean
             if (conformeQtd) {
                 if (valorS < 10) {
@@ -358,7 +389,7 @@ export function analisarItens(dfSaidaRaw: AnaliseRow[], dfEntradaRaw: AnaliseRow
         }
     }
 
-    // ---- Orphan Entradas (only within saida date range, mirrors Python logic) ----
+    // ---- Entradas órfãs (sem saída correspondente, dentro do período de referência) ----
     dfEntrada.forEach((row, idx) => {
         if (entradasProcessadas.has(idx)) return
 

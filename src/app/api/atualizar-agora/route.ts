@@ -19,11 +19,19 @@ export async function POST(req: Request) {
             console.log(">> Etapa 1: Baixando planilhas de e-mails via IMAP...")
             attachments = await fetchExcelAttachments(force);
             if (attachments.length === 0) {
+                const senderInfo = process.env.GMAIL_SENDER
+                    ? `remetente: ${process.env.GMAIL_SENDER}`
+                    : 'remetente: qualquer (GMAIL_SENDER não configurada)'
+                const subjectInfo = process.env.GMAIL_SUBJECT
+                    ? `assunto contém: "${process.env.GMAIL_SUBJECT}"`
+                    : 'assunto: qualquer'
+                const caixaInfo = `caixa: INBOX de ${process.env.GMAIL_USER || 'gestao_mxm@grupohospitalcasa.com.br'}`
+                const debug = `[${caixaInfo} | ${senderInfo} | ${subjectInfo}]`
                 return NextResponse.json({
                     success: true,
                     message: force
-                        ? "Nenhum arquivo Excel encontrado nos últimos 45 dias (mesmo no modo forçado)."
-                        : "Nenhum novo email com planilhas para processar. Use ?force=true para forçar reprocessamento.",
+                        ? `Nenhum arquivo Excel encontrado nos últimos 45 dias (modo forçado). ${debug}`
+                        : `Nenhum novo email com planilhas encontrado. Use "Reprocessar email lido" para ignorar emails já lidos. ${debug}`,
                     count: 0
                 })
             }
@@ -56,15 +64,12 @@ export async function POST(req: Request) {
 
             const parseDateExcel = (val: any) => {
                 if (!val) return new Date();
-                // Se for numero do excel serial
                 if (typeof val === 'number') {
                     return new Date(Math.round((val - 25569) * 86400 * 1000));
                 }
-                // Se for string DD/MM/YYYY
                 if (typeof val === 'string' && val.includes('/')) {
                     const parts = val.split(/[\s/:]+/);
                     if (parts.length >= 3) {
-                        // Assume DD/MM/YYYY
                         return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
                     }
                 }
@@ -73,10 +78,19 @@ export async function POST(req: Request) {
                 return new Date();
             };
 
+            // Converte célula numérica ou string BR/EN para float (evita remoção indevida do ponto decimal)
+            const parseValor = (val: any): number => {
+                if (typeof val === 'number') return val;
+                if (!val && val !== 0) return 0;
+                const s = String(val).trim().replace(/R\$\s?/g, '').replace(/\s/g, '');
+                if (s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+                if (s.includes(',')) return parseFloat(s.replace(',', '.')) || 0;
+                return parseFloat(s) || 0;
+            };
+
             for (const row of jsonData) {
-                // Remapeamento genérico tentando achar as colunas que vieram no CSV do Hosp. Casa
-                // Hosp Casa columns usually: Data, Unidade Origem, Unidade Destino, Documento, Ds Produto, Total, Qt Entrada
-                // We will try exact matches from Python mapping:
+                // Mapeamento flexível de colunas — tenta múltiplas variações de nome
+                // Colunas esperadas: Data, Unidade Origem, Unidade Destino, Documento, Ds Produto, Total, Qt Entrada
                 const dataPura = row['Data'] || row['DATA'] || row['Data/Hora'] || row['data'];
                 const dataFormatada = parseDateExcel(dataPura);
 
@@ -88,13 +102,12 @@ export async function POST(req: Request) {
                     unidade_destino: String(row['Unidade Destino'] || row['unidade_destino'] || row['Destino'] || ''),
                     documento: String(row['Documento'] || row['Nro Doc'] || row['documento'] || ''),
                     ds_produto: String(row['Ds Produto'] || row['Produto'] || row['ds_produto'] || ''),
-                    especie: String(row['Ds Especie'] || row['Especie'] || ''),
-                    valor_total: Number(String(row['Total'] || row['Valor Total'] || row['valor_total'] || '0').replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.')),
-                    qt_entrada: Number(String(row['Qt Entrada'] || row['Qtd'] || row['Qtd Entrada'] || row['qt_entrada'] || '0').replace(',', '.'))
+                    especie: String(row['Ds Especie'] || row['Especie'] || row['especie'] || ''),
+                    valor_total: parseValor(row['Total'] ?? row['Valor Total'] ?? row['valor_total'] ?? 0),
+                    qt_entrada: parseValor(row['Qt Entrada'] ?? row['Qtd'] ?? row['Qtd Entrada'] ?? row['qt_entrada'] ?? 0)
                 };
 
-                // Heuristic if isSaida/isEntrada from filename failed to explicitly separate
-                // Python script says: s_saida > s_entrada ? arquivos_saida : arquivos_entrada
+                // Classificação por heurística de nome de arquivo (score saida vs entrada)
                 if (isSaida && !isEntrada) {
                     arquivosSaida.push(obj);
                 } else if (isEntrada && !isSaida) {
@@ -111,9 +124,33 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true, message: "Pares Saída/Entrada inválidos no e-mail", count: 0 });
         }
 
-        // 3. Analyze Data matching Python algorithm
+        // 3. Executa algoritmo de análise de correspondência (Fuzzy Matching TypeScript)
         console.log(">> Etapa 3: Executando algoritmo de análise de correspondência...")
-        const { analise, stats } = analisarItens(arquivosSaida, arquivosEntrada);
+
+        // Agrega (soma qtd + valor) linhas com mesma chave única antes de analisar
+        // Isso evita que duplicatas internas no Excel causem correspondências incorretas
+        function agregarAnaliseRows(rows: AnaliseRow[]): AnaliseRow[] {
+            const m = new Map<string, AnaliseRow>()
+            for (const r of rows) {
+                const key = `${r.documento}|${r.unidade_origem}|${r.unidade_destino}|${r.ds_produto}`
+                if (m.has(key)) {
+                    const ex = m.get(key)!
+                    m.set(key, {
+                        ...ex,
+                        qt_entrada: (Number(ex.qt_entrada) || 0) + (Number(r.qt_entrada) || 0),
+                        valor_total: (Number(ex.valor_total) || 0) + (Number(r.valor_total) || 0),
+                    })
+                } else {
+                    m.set(key, { ...r })
+                }
+            }
+            return Array.from(m.values())
+        }
+
+        const { analise, stats } = analisarItens(
+            agregarAnaliseRows(arquivosSaida),
+            agregarAnaliseRows(arquivosEntrada)
+        );
 
         // Map analise array of objects into array of arrays for the sheets client matching the Headers
         const sheetsHeaders = [
@@ -157,7 +194,7 @@ export async function POST(req: Request) {
 
             // Supabase Payload format
             supabaseRecords.push({
-                data_transferencia: item.data ? new Date(item.data) : null,
+                data_transferencia: item.data ? new Date(item.data).toISOString().split('T')[0] : null,
                 documento: String(item.doc || ''),
                 unidade_origem: String(item.origem || ''),
                 unidade_destino: String(item.destino || ''),
@@ -165,7 +202,7 @@ export async function POST(req: Request) {
                 qtd_saida: Number(item.qtd_saida || 0),
                 produto_entrada: item.prod_entrada ? String(item.prod_entrada) : null,
                 qtd_entrada: Number(item.qtd_entrada || 0),
-                data_recebimento: item.data_entrada ? new Date(item.data_entrada) : null,
+                data_recebimento: item.data_entrada ? new Date(item.data_entrada).toISOString().split('T')[0] : null,
                 status_item: String(item.status || '').toLowerCase().replace('✅ ', '').replace('❌ ', '').replace('⚠️ ', ''),
                 tempo_recebimento: Number(item.tempo_recebimento || 0),
                 valor_saida: Number(item.val_saida || 0),
@@ -196,7 +233,8 @@ export async function POST(req: Request) {
             for (let i = 0; i < uniqueSupabaseRecords.length; i += BATCH_SIZE) {
                 const chunk = uniqueSupabaseRecords.slice(i, i + BATCH_SIZE)
                 const { error: errItens } = await supabaseAdmin.from('itens_clinicos').upsert(chunk, {
-                    onConflict: 'documento, unidade_origem, unidade_destino, produto_saida'
+                    onConflict: 'documento,unidade_origem,unidade_destino,produto_saida,data_transferencia',
+                    ignoreDuplicates: false
                 })
                 if (errItens) throw new Error(`Falha ao salvar itens_clinicos no Supabase: ${errItens.message}`);
             }

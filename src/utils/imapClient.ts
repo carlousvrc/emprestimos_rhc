@@ -28,13 +28,17 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
     try {
         const lock = await client.getMailboxLock('INBOX');
         try {
-            // IMAP Search parameters matching the Python logic
-            // Look for emails from the specific sender within the last 45 days
+            // Busca emails nos últimos 45 dias
             const dateStr = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
-            const searchCriteria: SearchObject = {
-                since: dateStr,
-                from: process.env.GMAIL_SENDER || 'pedro.gomes@hospitaldecancer.com.br',
-            };
+            const searchCriteria: SearchObject = { since: dateStr };
+
+            // Filtra por remetente somente se GMAIL_SENDER estiver explicitamente configurada.
+            // Se não estiver (ou usar o placeholder padrão), busca todos os remetentes para não
+            // bloquear a sincronização por uma variável de ambiente mal configurada.
+            const senderEnv = process.env.GMAIL_SENDER || '';
+            if (senderEnv) {
+                searchCriteria.from = senderEnv;
+            }
 
             // Only filter for unseen if not forcing a resync
             if (!force) {
@@ -83,7 +87,7 @@ export async function fetchExcelAttachments(force = false): Promise<{ filename: 
                     }
                     // Mark as seen so we don't process it again on the next sync
                     await client.messageFlagsAdd({ uid }, ['\\Seen'], { uid: true });
-                    // Stop searching once we found a valid email with Excel attachments (same logic as the Python script)
+                    // Para após encontrar o email mais recente com anexos válidos
                     break;
                 }
             }
