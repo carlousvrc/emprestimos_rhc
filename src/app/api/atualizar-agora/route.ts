@@ -178,8 +178,8 @@ export async function POST(req: Request) {
         for (const group of emailGroups) {
             const { saida, entrada, primeiraData } = parseAttachmentsFromEmail(group.attachments);
 
-            if (saida.length === 0 || entrada.length === 0) {
-                console.warn(`[Email UID=${group.emailUid}] Ignorado: não identificou pares Saída/Entrada.`);
+            if (saida.length === 0 && entrada.length === 0) {
+                console.warn(`[Email UID=${group.emailUid}] Ignorado: nenhum arquivo reconhecido como Saída ou Entrada.`);
                 continue;
             }
 
